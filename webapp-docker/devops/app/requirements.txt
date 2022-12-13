@@ -44,3 +44,5 @@ mpld3==0.5.8
 diskcache==5.4.0
 multiprocess==0.70.13
 tk==0.1.0
+scipy==1.4.1
+
