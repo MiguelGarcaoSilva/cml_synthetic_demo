@@ -1,0 +1,61 @@
+ version: '3.8'
+ services:
+
+    dashboard:
+     depends_on:
+       populate_db:
+         condition: service_completed_successfully
+     build: 
+       context: ./
+       dockerfile: ./devops/app/webapp-Dockerfile
+     container_name: dashboard
+     restart: always
+     environment:
+       - PG_HOST=db
+       - PG_USER=postgres
+       - PG_PORT=5432
+       - PG_DBNAME=postgres
+       - PG_PASSWORD=mysecretpassword
+     ports:
+       - 5000:80
+     networks:
+       - network
+
+    db:
+      image: timescale/timescaledb-ha:pg14-ts2.5-latest
+      container_name: db
+      restart: always
+      ports:
+        - 5432:5432
+      environment:
+        - POSTGRES_USER=postgres
+        - POSTGRES_PASSWORD=mysecretpassword
+        - POSTGRES_DB=postgres
+      volumes:
+        - ./devops/db/schema_synthetic.sql:/docker-entrypoint-initdb.d/schema_synthetic.sql
+      networks:
+        - network
+
+    populate_db:
+      container_name: populate_db
+      depends_on:
+        - db
+      build:
+        context: ./
+        dockerfile: ./devops/populate_db/pg_populate-Dockerfile
+      environment:
+        - PG_HOST=db
+        - PG_PORT=5432
+        - PG_DBNAME=postgres
+        - PG_USER=postgres
+        - PG_PASSWORD=mysecretpassword
+        - PGPASSWORD=mysecretpassword
+        - WAIT_HOSTS=db:5432
+      volumes:
+        - ./devops/populate_db/SyntheticData:/wd
+      networks:
+        - network
+  
+ networks:
+   network:
+     driver: bridge

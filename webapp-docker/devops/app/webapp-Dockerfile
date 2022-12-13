@@ -1,0 +1,12 @@
+FROM python:3.8-slim
+ 
+COPY devops/app/requirements.txt ./
+RUN apt-get update \
+    && apt-get -y install apt-utils \
+    && apt-get -y install libpq-dev gcc  libgirepository1.0-dev \ 
+    && apt-get -y install libcairo2-dev pkg-config python3-dev python-tk python3-tk tk-dev
+RUN pip install -r requirements.txt
+
+COPY app/ ./
+
+CMD [ "gunicorn", "--workers=1", "--threads=4", "-b 0.0.0.0:80", "app:server", "--timeout 0", "-k=gevent", "--worker-connections=100","--preload"]

@@ -1,0 +1,22 @@
+FROM python:3.8-slim
+
+COPY devops/app/requirements.txt ./
+
+RUN apt-get update \
+    && apt-get -y install apt-utils \
+    && apt-get -y install libpq-dev gcc  libgirepository1.0-dev \ 
+    && apt-get -y install libcairo2-dev pkg-config python3-dev \
+    && apt-get -y install postgresql-client
+
+# Add wait-for script
+ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.9.0/wait /wait
+RUN chmod +x /wait
+
+RUN pip install -r requirements.txt
+
+COPY devops/populate_db/populate_synthetic.py  ./
+COPY devops/populate_db/views_synthetic.sql  ./
+
+# Wait for the database service to be ready before executing the commands
+CMD /wait && python ./populate_synthetic.py && psql -h $PG_HOST -p $PG_PORT -U $PG_USER -d $PG_DBNAME -f views_synthetic.sql 
+
