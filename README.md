@@ -12,3 +12,7 @@ Instructions to use the demo:
 Requires the docker-compose command. (Refer to https://docs.docker.com/get-docker/ if you do not have docker and docker-compose installed).
 
 Contact if you have any trouble testing the demo: mmgsilva@fc.ul.pt 
+
+
+Known issues:
+    - Small bug using hourly perspective when selecting the dates and in axis labels vizualization.
