@@ -696,7 +696,6 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, stored_table, stor
 
             plotseasonal(axes_stl[:, i], res_stl, group_name)
             plot_trend_regression(axes_trend_regression[:, i], y, y_pred, formula)
-            fig_trend_regression.legend()
 
             noise_scale = np.abs(res_stl.resid).sum() / res_stl.observed.sum().values[0]
 
@@ -744,11 +743,11 @@ def plotseasonal(axes, res, ts_name):
 
 
 def plot_trend_regression(axes, observed, predicted, formula):
-    observed.plot(ax=axes[0], color="b")
+    observed.plot(ax=axes[0])
     predicted.plot(ax=axes[0], color="r", label=formula)
     axes[0].set_xlabel("")
+    axes[0].legend(loc='upper right')
     return None
-
 
 def get_dataset(time_agg, space_agg):
     if space_agg == "Cell":
