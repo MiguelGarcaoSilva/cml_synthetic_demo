@@ -15,4 +15,4 @@ Contact if you have any trouble testing the demo: mmgsilva@fc.ul.pt
 
 
 Known issues:
-    - Small bug using hourly perspective when selecting the dates and in axis labels vizualization.
+    - The app can have trouble when using finer spatiotemporal resolutions such as hourly data for cell locations.
