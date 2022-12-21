@@ -5,9 +5,12 @@ import dash_leaflet as dl
 import dash_leaflet.express as dlx
 from dash_extensions.javascript import arrow_function, assign
 import plotly.express as px
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from statsmodels.tsa.seasonal import STL
+import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression
+from datetime import date
 import matplotlib.pyplot as plt
 import os
 import json
@@ -25,31 +28,16 @@ register_page(__name__, path='/home')
 
 
 # SGBD configs
-DB_HOST = os.getenv('PG_HOST')
-DB_PORT= os.getenv('PG_PORT')
-DB_USER = os.getenv('PG_USER')
-DB_DATABASE = os.getenv('PG_DBNAME')
-DB_PASSWORD = os.getenv('PG_PASSWORD')
+load_dotenv()
+DB_HOST = os.getenv('DB_HOST')
+DB_USER = os.getenv('DB_USER')
+DB_DATABASE = os.getenv('DB_DATABASE')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
 
 
-engine_string = "postgresql+psycopg2://%s:%s@%s:%s/%s" % (
-    DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_DATABASE)
+engine_string = "postgresql+psycopg2://%s:%s@%s:5432/%s" % (
+    DB_USER, DB_PASSWORD, DB_HOST, DB_DATABASE)
 engine = create_engine(engine_string)
-
-
-DB_CONNECTION_STRING = "host=%s dbname=%s user=%s password=%s port=%s" % (
-    DB_HOST, DB_DATABASE, DB_USER, DB_PASSWORD, DB_PORT)
-
-
-dbConn = None
-cursor = None
-try:
-    dbConn = psycopg2.connect(DB_CONNECTION_STRING)
-    cursor = dbConn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-except Exception as e:
-    logging.warning(str(e))
-finally:
-    dbConn.commit()
 
 
 def get_info(feature=None, space_agg=None):
@@ -64,9 +52,11 @@ def get_info(feature=None, space_agg=None):
     if space_agg == "TAZ":
         return header + [html.B(feature["properties"]["taz_name"] + " - " + str(feature["properties"]["taz_id"])), html.Br(),
                          "Aprox: {:0.0f} terminals".format(feature["properties"]["avg_terminals"]), html.Br()]
-    return header + [html.B(feature["properties"]["township_name"] + " - " + str(feature["properties"]["dicofre_code"])), html.Br(),
-                     "Aprox: {:0.0f} terminals".format(feature["properties"]["avg_terminals"]), html.Br()]
+    if space_agg == "Township":
+        return header + [html.B(feature["properties"]["township_name"] + " - " + str(feature["properties"]["dicofre_code"])), html.Br(),
+                        "Aprox: {:0.0f} terminals".format(feature["properties"]["avg_terminals"]), html.Br()]
 
+    return header
 
 def human_format(num):
     num = float('{:.3g}'.format(num))
@@ -75,8 +65,6 @@ def human_format(num):
         magnitude += 1
         num /= 1000.0
     return '{}{}+'.format('{:f}'.format(num).rstrip('0').rstrip('.'), ['', 'K', 'M', 'B', 'T'][magnitude])
-
-
 
 
 # aggregated by cell
@@ -88,7 +76,7 @@ gdf_mobdata_hourly_cell = gdf_mobdata_hourly_cell.drop("one_time", axis=1)
 logging.warning("mob_data_aggregated_hourly_cell_withgeom_view:")
 logging.warning(time.process_time() - start)
 
-start = time.process_time()
+# start = time.process_time()
 query = "SELECT * FROM mob_data_aggregated_daily_cell_withgeom_view;"
 gdf_mobdata_daily_cell = gpd.read_postgis(query, engine, geom_col="wkt_cell", crs="EPSG:4326")
 gdf_mobdata_daily_cell["datetime"] = pd.to_datetime(gdf_mobdata_daily_cell["one_time"])
@@ -105,6 +93,7 @@ gdf_mobdata_weekly_cell["datetime"] = pd.to_datetime(
 gdf_mobdata_weekly_cell = gdf_mobdata_weekly_cell.drop("one_time", axis=1)
 logging.warning("mob_data_aggregated_weekly_cell_withgeom_view:")
 logging.warning(time.process_time() - start)
+
 
 start = time.process_time()
 query = "SELECT * FROM mob_data_aggregated_monthly_cell_withgeom_view;"
@@ -127,7 +116,7 @@ gdf_mobdata_hourly_taz = gdf_mobdata_hourly_taz.drop("one_time", axis=1)
 logging.warning("mob_data_aggregated_hourly_taz_withgeom_view:")
 logging.warning(time.process_time() - start)
 
-start = time.process_time()
+# start = time.process_time()
 query = "SELECT * FROM mob_data_aggregated_daily_taz_withgeom_view;"
 gdf_mobdata_daily_taz = gpd.read_postgis(
     query, engine, geom_col="wkt_taz", crs="EPSG:4326")
@@ -219,7 +208,8 @@ colorbar = dlx.categorical_colorbar(categories=ctg,
                                     position="bottomright")
 
 sorted_dates = sorted(gdf_mobdata_monthly_township['datetime'].unique())
-sorted_dates_datetime = [pd.to_datetime(str(date)).strftime('%d/%m/%Y') for date in sorted_dates]
+min_date_string = np.datetime_as_string(sorted_dates[0], unit='D')
+max_date_string = np.datetime_as_string(sorted_dates[-1], unit='D')
 marks = {numd: {"label": pd.to_datetime(str(date)).strftime('%d/%m/%Y'), "style": {"writing-mode": "vertical-rl"}}
          for numd, date in zip(numdate, sorted_dates)}
 style = dict(weight=2, opacity=1, color='white',
@@ -311,13 +301,13 @@ layout = dbc.Container([
                     
                     html.Div([dcc.DatePickerRange(
                                 id="date-range",
-                                min_date_allowed= sorted_dates_datetime[0],
-                                max_date_allowed= sorted_dates_datetime[-1],
+                                min_date_allowed= min_date_string,
+                                max_date_allowed= max_date_string,
                                 display_format="DD-MM-YYYY",
                                 month_format='MMMM Y',
                                 end_date_placeholder_text='MMMM Y',
-                                start_date=sorted_dates_datetime[0],
-                                end_date=sorted_dates_datetime[-1],
+                                start_date= min_date_string,
+                                end_date= max_date_string,
                             )], id= "date-range-div", style={
                              'textAlign': 'center', "margin": "auto", "margin-top": "10px"}),
                     
@@ -705,9 +695,11 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, stored_table, stor
             y = time_serie_no_seasonal.loc[:, data_feature]
             res_ols = model_ols.fit(X, y)
             y_pred = pd.Series(model_ols.predict(X), index=X.index)
+            formula = f'y = {res_ols.coef_[0]:.2f}x + {res_ols.intercept_:.2f}'
 
             plotseasonal(axes_stl[:, i], res_stl, group_name)
-            plot_trend_regression(axes_trend_regression[:, i], y, y_pred)
+            plot_trend_regression(axes_trend_regression[:, i], y, y_pred, formula)
+            fig_trend_regression.legend()
 
             noise_scale = np.abs(res_stl.resid).sum() / res_stl.observed.sum().values[0]
 
@@ -747,20 +739,16 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, stored_table, stor
 
 
 def plotseasonal(axes, res, ts_name):
-    res.observed.plot(ax=axes[0], legend=False)
+    res.observed.plot(ax=axes[0], legend=False, xlabel="")
     axes[0].set_title(ts_name)
-    res.trend.plot(ax=axes[1], legend=False)
-    res.seasonal.plot(ax=axes[2], legend=False)
-    res.resid.plot(ax=axes[3], legend=False)
-    axes[0].set_xlabel("")
-    axes[1].set_xlabel("")
-    axes[2].set_xlabel("")
-    axes[3].set_xlabel("")
+    res.trend.plot(ax=axes[1], legend=False, xlabel="")
+    res.seasonal.plot(ax=axes[2], legend=False, xlabel="")
+    res.resid.plot(ax=axes[3], legend=False, xlabel="")
 
 
-def plot_trend_regression(axes, observed, predicted):
-    observed.plot(ax=axes[0], color="black")
-    predicted.plot(ax=axes[0], color="blue")
+def plot_trend_regression(axes, observed, predicted, formula):
+    observed.plot(ax=axes[0], color="b")
+    predicted.plot(ax=axes[0], color="r", label=formula)
     axes[0].set_xlabel("")
     return None
 
