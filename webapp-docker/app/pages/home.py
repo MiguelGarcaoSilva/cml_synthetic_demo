@@ -5,12 +5,9 @@ import dash_leaflet as dl
 import dash_leaflet.express as dlx
 from dash_extensions.javascript import arrow_function, assign
 import plotly.express as px
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from statsmodels.tsa.seasonal import STL
-import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression
-from datetime import date
 import matplotlib.pyplot as plt
 import os
 import json
@@ -28,15 +25,15 @@ register_page(__name__, path='/home')
 
 
 # SGBD configs
-load_dotenv()
-DB_HOST = os.getenv('DB_HOST')
-DB_USER = os.getenv('DB_USER')
-DB_DATABASE = os.getenv('DB_DATABASE')
-DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_HOST = os.getenv('PG_HOST')
+DB_PORT= os.getenv('PG_PORT')
+DB_USER = os.getenv('PG_USER')
+DB_DATABASE = os.getenv('PG_DBNAME')
+DB_PASSWORD = os.getenv('PG_PASSWORD')
 
 
-engine_string = "postgresql+psycopg2://%s:%s@%s:5432/%s" % (
-    DB_USER, DB_PASSWORD, DB_HOST, DB_DATABASE)
+engine_string = "postgresql+psycopg2://%s:%s@%s:%s/%s" % (
+    DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_DATABASE)
 engine = create_engine(engine_string)
 
 
