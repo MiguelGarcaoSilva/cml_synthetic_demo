@@ -37,6 +37,7 @@ engine_string = "postgresql+psycopg2://%s:%s@%s:%s/%s" % (
 engine = create_engine(engine_string)
 
 
+
 def get_info(feature=None, space_agg=None):
     header = [html.H4("Lisbon - Number of Terminals")]
     if not feature:
@@ -65,21 +66,21 @@ def human_format(num):
 
 
 # aggregated by cell
-start = time.process_time()
-query = "SELECT * FROM mob_data_aggregated_hourly_cell_withgeom_view;"
-gdf_mobdata_hourly_cell = gpd.read_postgis(query, engine, geom_col="wkt_cell", crs="EPSG:4326")
-gdf_mobdata_hourly_cell["datetime"] = pd.to_datetime(gdf_mobdata_hourly_cell["one_time"])
-gdf_mobdata_hourly_cell = gdf_mobdata_hourly_cell.drop("one_time", axis=1)
-logging.warning("mob_data_aggregated_hourly_cell_withgeom_view:")
-logging.warning(time.process_time() - start)
+# start = time.process_time()
+# query = "SELECT * FROM mob_data_aggregated_hourly_cell_withgeom_view;"
+# gdf_mobdata_hourly_cell = gpd.read_postgis(query, engine, geom_col="wkt_cell", crs="EPSG:4326")
+# gdf_mobdata_hourly_cell["datetime"] = pd.to_datetime(gdf_mobdata_hourly_cell["one_time"])
+# gdf_mobdata_hourly_cell = gdf_mobdata_hourly_cell.drop("one_time", axis=1)
+# logging.warning("mob_data_aggregated_hourly_cell_withgeom_view:")
+# logging.warning(time.process_time() - start)
 
 # start = time.process_time()
-query = "SELECT * FROM mob_data_aggregated_daily_cell_withgeom_view;"
-gdf_mobdata_daily_cell = gpd.read_postgis(query, engine, geom_col="wkt_cell", crs="EPSG:4326")
-gdf_mobdata_daily_cell["datetime"] = pd.to_datetime(gdf_mobdata_daily_cell["one_time"])
-gdf_mobdata_daily_cell = gdf_mobdata_daily_cell.drop("one_time", axis=1)
-logging.warning("mob_data_aggregated_daily_cell_withgeom_view:")
-logging.warning(time.process_time() - start)
+# query = "SELECT * FROM mob_data_aggregated_daily_cell_withgeom_view;"
+# gdf_mobdata_daily_cell = gpd.read_postgis(query, engine, geom_col="wkt_cell", crs="EPSG:4326")
+# gdf_mobdata_daily_cell["datetime"] = pd.to_datetime(gdf_mobdata_daily_cell["one_time"])
+# gdf_mobdata_daily_cell = gdf_mobdata_daily_cell.drop("one_time", axis=1)
+# logging.warning("mob_data_aggregated_daily_cell_withgeom_view:")
+# logging.warning(time.process_time() - start)
 
 start = time.process_time()
 query = "SELECT * FROM mob_data_aggregated_weekly_cell_withgeom_view;"
@@ -104,14 +105,14 @@ logging.warning(time.process_time() - start)
 
 
 # aggregated by TAZ
-start = time.process_time()
-query = "SELECT * FROM mob_data_aggregated_hourly_taz_withgeom_view;"
-gdf_mobdata_hourly_taz = gpd.read_postgis(
-    query, engine, geom_col="wkt_taz", crs="EPSG:4326")
-gdf_mobdata_hourly_taz["datetime"] = pd.to_datetime(gdf_mobdata_hourly_taz["one_time"])
-gdf_mobdata_hourly_taz = gdf_mobdata_hourly_taz.drop("one_time", axis=1)
-logging.warning("mob_data_aggregated_hourly_taz_withgeom_view:")
-logging.warning(time.process_time() - start)
+# start = time.process_time()
+# query = "SELECT * FROM mob_data_aggregated_hourly_taz_withgeom_view;"
+# gdf_mobdata_hourly_taz = gpd.read_postgis(
+#     query, engine, geom_col="wkt_taz", crs="EPSG:4326")
+# gdf_mobdata_hourly_taz["datetime"] = pd.to_datetime(gdf_mobdata_hourly_taz["one_time"])
+# gdf_mobdata_hourly_taz = gdf_mobdata_hourly_taz.drop("one_time", axis=1)
+# logging.warning("mob_data_aggregated_hourly_taz_withgeom_view:")
+# logging.warning(time.process_time() - start)
 
 # start = time.process_time()
 query = "SELECT * FROM mob_data_aggregated_daily_taz_withgeom_view;"
@@ -144,14 +145,14 @@ logging.warning(time.process_time() - start)
 
 
 # aggregated by township
-start = time.process_time()
-query = "SELECT * FROM mob_data_aggregated_hourly_township_withgeom_view;"
-gdf_mobdata_hourly_township = gpd.read_postgis(
-    query, engine, geom_col="wkt_township", crs="EPSG:4326")
-gdf_mobdata_hourly_township["datetime"] = pd.to_datetime(gdf_mobdata_hourly_township["one_time"])
-gdf_mobdata_hourly_township = gdf_mobdata_hourly_township.drop("one_time", axis=1)
-logging.warning("mob_data_aggregated_hourly_township_withgeom_view:")
-logging.warning(time.process_time() - start)
+# start = time.process_time()
+# query = "SELECT * FROM mob_data_aggregated_hourly_township_withgeom_view;"
+# gdf_mobdata_hourly_township = gpd.read_postgis(
+#     query, engine, geom_col="wkt_township", crs="EPSG:4326")
+# gdf_mobdata_hourly_township["datetime"] = pd.to_datetime(gdf_mobdata_hourly_township["one_time"])
+# gdf_mobdata_hourly_township = gdf_mobdata_hourly_township.drop("one_time", axis=1)
+# logging.warning("mob_data_aggregated_hourly_township_withgeom_view:")
+# logging.warning(time.process_time() - start)
 
 start = time.process_time()
 query = "SELECT * FROM mob_data_aggregated_daily_township_withgeom_view;"
@@ -656,7 +657,7 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, stored_table, stor
             checklist_values), nrows=1, figsize=(len(checklist_values)*5, 3), squeeze=False)
 
         decomp_stats_table = pd.DataFrame(
-            columns=["Name", "Trend Coef", "Trend R2", "Trend Scale", "Noise Scale", "Seasonality Scale"])
+            columns=["Name","var_exp_trend","var_exp_seasonal", "var_exp_resid","Trend Coef", "Trend R2", "Trend Scale", "Noise Scale", "Seasonal Scale"])
         for i, (group_name, df_group) in enumerate(table_df.groupby(space_feature_name)):
             set_progress((str(i + 1), str(len(checklist_values))))
 
@@ -697,19 +698,37 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, stored_table, stor
             plotseasonal(axes_stl[:, i], res_stl, group_name)
             plot_trend_regression(axes_trend_regression[:, i], y, y_pred, formula)
 
+            # seasonal_scale = (res_stl.seasonal.max(
+            # ) - res_stl.seasonal.min()) / (res_stl.observed.max() - res_stl.observed.min())
+            # cv_seasonal = np.std(res_stl.seasonal) / np.mean(res_stl.seasonal)
+            # cv_observed = np.std(res_stl.observed) / np.mean(res_stl.observed)
+
+            # seasonal_relative_scale = cv_seasonal / cv_observed
+
+            ###variances explained
+            var_trend = np.var(res_stl.trend)
+            var_seasonal = np.var(res_stl.seasonal)
+            var_resid = np.var(res_stl.resid)
+            var_seasonaladjsted = np.var(res_stl.trend+res_stl.resid)
+            var_detrended =np.var(res_stl.seasonal+res_stl.resid)
+            total_var = var_trend + var_seasonal + var_resid
+            prop_trend = (var_trend / total_var) 
+            prop_seasonal = (var_seasonal / total_var) 
+            prop_resid = (var_resid / total_var) 
+
+
+            trend_strength = max(0,1 - (var_resid/(var_seasonaladjsted)))
+            seasonal_strength = max(0,1 - (var_resid/(var_detrended)))
             noise_scale = np.abs(res_stl.resid).sum() / res_stl.observed.sum().values[0]
 
-            seasonal_scale = (res_stl.seasonal.max(
-            ) - res_stl.seasonal.min()) / (res_stl.observed.max() - res_stl.observed.min())
-
             #TODO: como calcular a trend scale
-            #trend_scale = res_ols.coef_[0] / 
-            trend_scale = 1
-            stats_df = {"Name": group_name, "Trend Coef": round(res_ols.coef_[0], 3), "Trend R2": round(res_ols.score(
-                X, y), 3), "Trend Scale": trend_scale, "Noise Scale": round(noise_scale, 3), "Seasonality Scale": round(seasonal_scale, 3)}
-
-            decomp_stats_table = pd.concat(
-                [decomp_stats_table, pd.DataFrame.from_records(stats_df)], ignore_index=True)
+            #trend_scale = res_ols.coef_[0] / np.std(res_stl.observed)
+            stats_df = {"Name": group_name, "var_exp_trend": round(prop_trend, 3), "var_exp_seasonal": round(prop_seasonal, 3), "var_exp_resid": round(prop_resid, 3),
+                "Trend Coef": round(res_ols.coef_[0], 3), "Trend R2": round(res_ols.score(
+                X, y), 3), "Trend Scale": round(trend_strength, 3), "Noise Scale": round(noise_scale, 3), 
+                "Seasonal Scale": round(seasonal_strength, 3)}
+            
+            decomp_stats_table = pd.concat([decomp_stats_table, pd.DataFrame(stats_df, index=[0])],ignore_index=True)
 
         axes_stl[0, 0].set_ylabel("Observed")
         axes_stl[1, 0].set_ylabel("Trend")
@@ -739,7 +758,7 @@ def plotseasonal(axes, res, ts_name):
     axes[0].set_title(ts_name)
     res.trend.plot(ax=axes[1], legend=False, xlabel="")
     res.seasonal.plot(ax=axes[2], legend=False, xlabel="")
-    res.resid.plot(ax=axes[3], legend=False, xlabel="")
+    res.resid.plot(ax=axes[3], style=".", legend=False, xlabel="")
 
 
 def plot_trend_regression(axes, observed, predicted, formula):
@@ -748,6 +767,7 @@ def plot_trend_regression(axes, observed, predicted, formula):
     axes[0].set_xlabel("")
     axes[0].legend(loc='upper right')
     return None
+
 
 def get_dataset(time_agg, space_agg):
     if space_agg == "Cell":
