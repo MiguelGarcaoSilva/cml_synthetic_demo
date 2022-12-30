@@ -52,9 +52,17 @@ def get_info(feature=None, space_agg=None):
                          "Aprox: {:0.0f} terminals".format(feature["properties"]["avg_terminals"]), html.Br()]
     if space_agg == "Township":
         return header + [html.B(feature["properties"]["township_name"] + " - " + str(feature["properties"]["dicofre_code"])), html.Br(),
-                        "Aprox: {:0.0f} terminals".format(feature["properties"]["avg_terminals"]), html.Br()]
+                         "Aprox: {:0.0f} terminals".format(feature["properties"]["avg_terminals"]), html.Br()]
 
     return header
+
+def get_info_statistics(feature=None, space_feature_name=None):
+    header = [html.H4("Lisbon - Statistics of Interest")]
+    if not feature:
+        return header
+    return header + [html.B(feature["properties"][space_feature_name]), html.Br(),
+                        "F_T: {:.2f}, F_S:{:.2f}, F_R:{:.2f}  ".format(feature["properties"]["F_T"], feature["properties"]["F_S"], feature["properties"]["F_R"]),  html.Br()]
+
 
 def human_format(num):
     num = float('{:.3g}'.format(num))
@@ -74,13 +82,13 @@ def human_format(num):
 # logging.warning("mob_data_aggregated_hourly_cell_withgeom_view:")
 # logging.warning(time.process_time() - start)
 
-# start = time.process_time()
-# query = "SELECT * FROM mob_data_aggregated_daily_cell_withgeom_view;"
-# gdf_mobdata_daily_cell = gpd.read_postgis(query, engine, geom_col="wkt_cell", crs="EPSG:4326")
-# gdf_mobdata_daily_cell["datetime"] = pd.to_datetime(gdf_mobdata_daily_cell["one_time"])
-# gdf_mobdata_daily_cell = gdf_mobdata_daily_cell.drop("one_time", axis=1)
-# logging.warning("mob_data_aggregated_daily_cell_withgeom_view:")
-# logging.warning(time.process_time() - start)
+#start = time.process_time()
+#query = "SELECT * FROM mob_data_aggregated_daily_cell_withgeom_view;"
+#gdf_mobdata_daily_cell = gpd.read_postgis(query, engine, geom_col="wkt_cell", crs="EPSG:4326")
+#gdf_mobdata_daily_cell["datetime"] = pd.to_datetime(gdf_mobdata_daily_cell["one_time"])
+#gdf_mobdata_daily_cell = gdf_mobdata_daily_cell.drop("one_time", axis=1)
+#logging.warning("mob_data_aggregated_daily_cell_withgeom_view:")
+#logging.warning(time.process_time() - start)
 
 start = time.process_time()
 query = "SELECT * FROM mob_data_aggregated_weekly_cell_withgeom_view;"
@@ -114,11 +122,12 @@ logging.warning(time.process_time() - start)
 # logging.warning("mob_data_aggregated_hourly_taz_withgeom_view:")
 # logging.warning(time.process_time() - start)
 
-# start = time.process_time()
+start = time.process_time()
 query = "SELECT * FROM mob_data_aggregated_daily_taz_withgeom_view;"
 gdf_mobdata_daily_taz = gpd.read_postgis(
     query, engine, geom_col="wkt_taz", crs="EPSG:4326")
-gdf_mobdata_daily_taz["datetime"] = pd.to_datetime(gdf_mobdata_daily_taz["one_time"])
+gdf_mobdata_daily_taz["datetime"] = pd.to_datetime(
+    gdf_mobdata_daily_taz["one_time"])
 gdf_mobdata_daily_taz = gdf_mobdata_daily_taz.drop("one_time", axis=1)
 logging.warning("mob_data_aggregated_daily_taz_withgeom_view:")
 logging.warning(time.process_time() - start)
@@ -230,8 +239,18 @@ geojson_layer = dl.GeoJSON(data=json.loads(filtered_gdf_civiltownship.to_json())
                                         style=style, colorProp="avg_terminals"),
                            id="geojson_layer")
 
+geojson_layer_statistics = dl.GeoJSON(data=json.loads(pd.DataFrame().to_json()),
+                        options=dict(style=style_handle),
+                        hoverStyle=arrow_function(
+                            dict(weight=5, color='#666', dashArray='')),
+                        hideout=dict(colorscale=colorscale, classes=classes,
+                                    style=style, colorProp="F_S"),
+                        id="geojson_layer_statistics")
+
 
 info = html.Div(children=get_info(), id="info", className="info",
+                style={"position": "absolute", "top": "10px", "right": "10px", "z-index": "1000"})
+info_statistics = html.Div(children=get_info_statistics(), id="info_statistics", className="info",
                 style={"position": "absolute", "top": "10px", "right": "10px", "z-index": "1000"})
 
 
@@ -294,26 +313,34 @@ layout = dbc.Container([
                         value=[],
                         inline=True,
                         style={"height": "200px", "overflow": "scroll", "margin-top": "10px"}, persistence=True, persistence_type="session"), id="checklist_div"),
-                    
+
                     html.Div("Time range to perform TS Decomposition:"),
-                    
-                    html.Div([dcc.DatePickerRange(
-                                id="date-range",
-                                min_date_allowed= min_date_string,
-                                max_date_allowed= max_date_string,
-                                display_format="DD-MM-YYYY",
-                                month_format='MMMM Y',
-                                end_date_placeholder_text='MMMM Y',
-                                start_date= min_date_string,
-                                end_date= max_date_string,
-                            )], id= "date-range-div", style={
-                             'textAlign': 'center', "margin": "auto", "margin-top": "10px"}),
-                    
+
+                    html.Div([
+                        dcc.DatePickerRange(
+                            id="date-range",
+                            min_date_allowed=min_date_string,
+                            max_date_allowed=max_date_string,
+                            display_format="DD-MM-YYYY",
+                            month_format='MMMM Y',
+                            end_date_placeholder_text='MMMM Y',
+                            start_date=min_date_string,
+                            end_date=max_date_string
+                        )],
+                        id="date-range-div", style={'textAlign': 'center', "margin": "auto", "margin-top": "10px"}),
+
+                    html.Div([dcc.Dropdown(
+                        options=[{"label": "Classic Additive", "value": "seasonal_decompose"}, {
+                            "label": "STL", "value": "stl"}],
+                        value="seasonal_decompose", id="decompose_algo-dropdown",
+                        persistence=True, persistence_type="session")]),
+
                     html.Div([
                         html.Button(id="button_run",
                                     children="Run TS Decomp!"),
                         html.Button(id="cancel_button_run", children="Cancel Running Job!", style={
                             "margin-left": "15px"})], style={'textAlign': 'center', "margin": "auto", "margin-top": "20px"}),
+
                     html.Div([html.Progress(id="progress_bar", value="0")],  style={
                              'textAlign': 'center', "margin": "auto", "margin-top": "30px"})
                     ], width=6)]),
@@ -334,7 +361,22 @@ layout = dbc.Container([
                                        id="ts-decomp-table_div", style={'textAlign': 'center', "margin": "auto", "margin-top": "30px"}))]),
 
     dbc.Row(children=[dbc.Col(html.Div(dcc.Link(html.Button(id="button_checkfull_viz", children="Check Decomposition Visualizations!"),
-            href="/decomp-viz"), style={'textAlign': 'center', "margin": "auto", "margin-top": "30px"}))])
+            href="/decomp-viz"), style={'textAlign': 'center', "margin": "auto", "margin-top": "30px"}))]),
+
+   html.Div([
+        dcc.Dropdown(
+            options={
+                'F_T': 'F_T',
+                'F_S': 'F_S',
+                'F_R': 'F_R'
+            },
+            value='F_R',
+            id='statistics-dropdown', persistence=True, persistence_type="session"
+        )
+    ], style={'width': '30%', "float": "right", "text-align": "left", "margin-top": "30px"}),
+    dbc.Row(dbc.Col(children=[html.Div(children=[dl.Map(id="my-map-statistics", children=[dl.TileLayer(), geojson_layer_statistics, None, info_statistics], center=(38.74, -9.14), zoom=12, style={'width': '100%', 'height': '50vh', 'margin': "auto", "display": "block"}),
+                                                 ], id="map-statistics-container"),
+                              ]), style={"margin-top": "30px"})
 
 
 ])
@@ -347,6 +389,18 @@ layout = dbc.Container([
 def info_hover(feature, space_agg):
     return get_info(feature, space_agg)
 
+@callback(
+    Output("info_statistics", "children"),
+    Input("geojson_layer_statistics", "hover_feature"),
+    State("spaceagg-dropdown", "value"))
+def info_hover_statistics(feature, space_agg):
+    if space_agg == "Cell":
+        space_feature_name = "location_id"
+    elif space_agg == "TAZ":
+        space_feature_name = "taz_name"
+    else:
+        space_feature_name = "township_name"
+    return get_info_statistics(feature, space_feature_name)
 
 
 @callback(
@@ -398,27 +452,32 @@ def change_between_time_data_range(time_agg, space_agg):
 
     sorted_dates_datetime = sorted(gdf_data['datetime'].unique())
     if time_agg == "Hourly":
-        min_date_string = np.datetime_as_string(sorted_dates_datetime[0], unit='m')
-        max_date_string = np.datetime_as_string(sorted_dates_datetime[-1], unit='m')
+        min_date_string = np.datetime_as_string(
+            sorted_dates_datetime[0], unit='m')
+        max_date_string = np.datetime_as_string(
+            sorted_dates_datetime[-1], unit='m')
         range_selector = [html.Label("Start Time:"),
-                          dcc.Input(id = "start-time-range" ,type="datetime-local", value = min_date_string, min= min_date_string, max= max_date_string, step="3600", style={"margin-left": "5px"}),
-                          html.Label("End Time:", style={"margin-left": "20px"}),
-                          dcc.Input(id = "end-time-range", type="datetime-local", value = max_date_string, min=min_date_string, max=max_date_string, step="3600", style={"margin-left": "5px"})]
+                          dcc.Input(id="start-time-range", type="datetime-local", value=min_date_string,
+                                    min=min_date_string, max=max_date_string, step="3600", style={"margin-left": "5px"}),
+                          html.Label("End Time:", style={
+                                     "margin-left": "20px"}),
+                          dcc.Input(id="end-time-range", type="datetime-local", value=max_date_string, min=min_date_string, max=max_date_string, step="3600", style={"margin-left": "5px"})]
     else:
-        min_date_string = np.datetime_as_string(sorted_dates_datetime[0], unit='D')
-        max_date_string = np.datetime_as_string(sorted_dates_datetime[-1], unit='D')
+        min_date_string = np.datetime_as_string(
+            sorted_dates_datetime[0], unit='D')
+        max_date_string = np.datetime_as_string(
+            sorted_dates_datetime[-1], unit='D')
         range_selector = [dcc.DatePickerRange(
-                                id="date-range",
-                                min_date_allowed= min_date_string,
-                                max_date_allowed= max_date_string,
-                                display_format="DD-MM-YYYY",
-                                month_format='MMMM Y',
-                                end_date_placeholder_text='MMMM Y',
-                                start_date=min_date_string,
-                                end_date=max_date_string,
-                            )]
+            id="date-range",
+            min_date_allowed=min_date_string,
+            max_date_allowed=max_date_string,
+            display_format="DD-MM-YYYY",
+            month_format='MMMM Y',
+            end_date_placeholder_text='MMMM Y',
+            start_date=min_date_string,
+            end_date=max_date_string,
+        )]
     return range_selector
-
 
 
 @callback(
@@ -496,6 +555,17 @@ def update_plot(checklist_values, time_agg, space_agg, data_feature):
     return fig
 
 
+
+def fix_wkt_taz(row, wkt_feature_name):
+    # Convert the wkt_taz string to a Shapely geometry
+    geometry = row[wkt_feature_name]
+    # Check if the geometry is valid
+    if not geometry.is_valid:
+        # If the geometry is not valid, apply the buffer(0) method to repair it
+        geometry = geometry.buffer(0)
+    # Return the fixed geometry
+    return geometry
+
 @callback(
     Output('map-container', 'children'),
     Output('slider_div', 'children'),
@@ -518,6 +588,8 @@ def update_figure_and_slider(time_agg, space_agg, data_feature, selected_time_ra
         wkt_feature_name = "wkt_township"
 
     gdf_data = get_dataset(time_agg, space_agg)
+    # Apply the fix_wkt_taz function to the wkt_taz column
+    gdf_data[wkt_feature_name] = gdf_data.apply(lambda row: fix_wkt_taz(row, wkt_feature_name), axis=1)
 
     numdate = [x for x in range(len(gdf_data['datetime'].unique()))]
 
@@ -525,18 +597,20 @@ def update_figure_and_slider(time_agg, space_agg, data_feature, selected_time_ra
         selected_range = [sorted(gdf_data['datetime'].unique())[selected_time_range_agg[0]], sorted(gdf_data['datetime'].unique())[
             selected_time_range_agg[1]]]
     else:
-        selected_range = [sorted(gdf_data['datetime'].unique())[0], sorted(gdf_data['datetime'].unique())[0]]
+        selected_range = [sorted(gdf_data['datetime'].unique())[
+            0], sorted(gdf_data['datetime'].unique())[0]]
 
-    
     if selected_range[0] == selected_range[1]:
-        filtered_gdf = gdf_data[(gdf_data['datetime']  == selected_range[0])].drop("datetime", axis=1)
+        filtered_gdf = gdf_data[(gdf_data['datetime'] == selected_range[0])].drop(
+            "datetime", axis=1)
     else:
         filtered_gdf = gdf_data[(gdf_data['datetime'] >= selected_range[0]) & (gdf_data['datetime'] <= selected_range[1])].drop(
             "datetime", axis=1)
         agg_dict = {col: 'sum' if col in [data_feature] else 'first'
                     for col in filtered_gdf.columns if col != wkt_feature_name}
-        filtered_gdf = filtered_gdf.dissolve(by=space_feature_name, aggfunc=agg_dict)
-        
+        filtered_gdf = filtered_gdf.dissolve(
+            by=space_feature_name, aggfunc=agg_dict)
+
     max_value = filtered_gdf[data_feature].max()
     classes_scale = math.floor(
         max_value/np.power(10, int(math.log10(max_value))))*np.power(10, int(math.log10(max_value)))
@@ -588,21 +662,22 @@ def update_figure_and_slider(time_agg, space_agg, data_feature, selected_time_ra
 
 @callback(
     [
-     Output("ts-decomp-stl-plots-iframe-memory", "data"),
-     Output("ts-decomp-trendregression-plots-iframe-memory", "data"),
-     Output('ts-decomp-table', 'data'),
-     Output('ts-decomp-table', 'columns'),
-     Output("ts-decomp-table-store-memory", "data")
-     ],
+        Output("ts-decomp-stl-plots-iframe-memory", "data"),
+        Output("ts-decomp-trendregression-plots-iframe-memory", "data"),
+        Output('ts-decomp-table', 'data'),
+        Output('ts-decomp-table', 'columns'),
+        Output("ts-decomp-table-store-memory", "data")
+    ],
     [Input("url-home", "pathname"),
-    Input("button_run", "n_clicks"),
-    State("ts-decomp-table-store-memory", "data"),
-    State('ts-decomp-stl-plots-iframe-memory', "data"),
-    State('ts-decomp-trendregression-plots-iframe-memory', "data"),
-    State('timeagg-dropdown', 'value'),
-    State('spaceagg-dropdown', 'value'),
-    State("datafeature-dropdown", "value"),
-    State("checklist-store-memory", "data")],
+     Input("button_run", "n_clicks"),
+     State("decompose_algo-dropdown", "value"),
+     State("ts-decomp-table-store-memory", "data"),
+     State('ts-decomp-stl-plots-iframe-memory', "data"),
+     State('ts-decomp-trendregression-plots-iframe-memory', "data"),
+     State('timeagg-dropdown', 'value'),
+     State('spaceagg-dropdown', 'value'),
+     State("datafeature-dropdown", "value"),
+     State("checklist-store-memory", "data")],
     running=[
         (Output("timeagg-dropdown", "disabled"), True, False),
         (Output("spaceagg-dropdown", "disabled"), True, False),
@@ -620,15 +695,15 @@ def update_figure_and_slider(time_agg, space_agg, data_feature, selected_time_ra
     progress=[Output("progress_bar", "value"), Output("progress_bar", "max")],
     prevent_initial_call=True,
     background=True)
-def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, stored_table, stored_html_matplotlib_stl, stored_html_matplotlib_trend_regression, time_agg, space_agg, data_feature, checklist_values_memory):
-    
-    if url != '/home': raise exceptions.PreventUpdate
+def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, decomp_algo, stored_table, stored_html_matplotlib_stl, stored_html_matplotlib_trend_regression, time_agg, space_agg, data_feature, checklist_values_memory):
+
+    if url != '/home':
+        raise exceptions.PreventUpdate
 
     trigger_id = callback_context.triggered[0]["prop_id"].split(".")[0]
 
     if checklist_values_memory == {}:
         raise exceptions.PreventUpdate
-
 
     checklist_values = checklist_values_memory[0]
 
@@ -657,7 +732,7 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, stored_table, stor
             checklist_values), nrows=1, figsize=(len(checklist_values)*5, 3), squeeze=False)
 
         decomp_stats_table = pd.DataFrame(
-            columns=["Name","var_exp_trend","var_exp_seasonal", "var_exp_resid","Trend Coef", "Trend R2", "Trend Scale", "Noise Scale", "Seasonal Scale"])
+            columns=["Name", "LinearT Coef", "LinearT R2", "F_T",  "F_S", "F_R"])
         for i, (group_name, df_group) in enumerate(table_df.groupby(space_feature_name)):
             set_progress((str(i + 1), str(len(checklist_values))))
 
@@ -684,7 +759,10 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, stored_table, stor
             # After filling the NA gaps, the seasonal component is added to the deseasonalized series again.
             time_serie = time_serie.add(res.seasonal, axis=0)
 
-            res_stl = STL(time_serie).fit()
+            if decomp_algo == "seasonal_decompose":
+                res = seasonal_decompose(time_serie, model="additive")
+            else:  # stl
+                res = STL(time_serie).fit()
 
             time_serie_no_seasonal = time_serie.subtract(res.seasonal, axis=0)
             model_ols = LinearRegression()
@@ -695,40 +773,34 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, stored_table, stor
             y_pred = pd.Series(model_ols.predict(X), index=X.index)
             formula = f'y = {res_ols.coef_[0]:.2f}x + {res_ols.intercept_:.2f}'
 
-            plotseasonal(axes_stl[:, i], res_stl, group_name)
-            plot_trend_regression(axes_trend_regression[:, i], y, y_pred, formula)
-
-            # seasonal_scale = (res_stl.seasonal.max(
-            # ) - res_stl.seasonal.min()) / (res_stl.observed.max() - res_stl.observed.min())
-            # cv_seasonal = np.std(res_stl.seasonal) / np.mean(res_stl.seasonal)
-            # cv_observed = np.std(res_stl.observed) / np.mean(res_stl.observed)
-
-            # seasonal_relative_scale = cv_seasonal / cv_observed
-
-            ###variances explained
-            var_trend = np.var(res_stl.trend)
-            var_seasonal = np.var(res_stl.seasonal)
-            var_resid = np.var(res_stl.resid)
-            var_seasonaladjsted = np.var(res_stl.trend+res_stl.resid)
-            var_detrended =np.var(res_stl.seasonal+res_stl.resid)
-            total_var = var_trend + var_seasonal + var_resid
-            prop_trend = (var_trend / total_var) 
-            prop_seasonal = (var_seasonal / total_var) 
-            prop_resid = (var_resid / total_var) 
+            plotseasonal(axes_stl[:, i], res, group_name)
+            plot_trend_regression(
+                axes_trend_regression[:, i], y, y_pred, formula)
 
 
-            trend_strength = max(0,1 - (var_resid/(var_seasonaladjsted)))
-            seasonal_strength = max(0,1 - (var_resid/(var_detrended)))
-            noise_scale = np.abs(res_stl.resid).sum() / res_stl.observed.sum().values[0]
+            # variances explained
+            var_trend = np.var(res.trend)
+            var_seasonal = np.var(res.seasonal)
+            var_resid = np.var(res.resid)
+            var_seasonaladjsted = np.var(res.trend+res.resid)
+            var_detrended = np.var(res.seasonal+res.resid)
+            var_observed = var_trend+var_seasonal+var_resid
+            prop_trend = (var_trend / var_observed)
+            prop_seasonal = (var_seasonal / var_observed)
+            prop_resid = (var_resid / var_observed)
 
-            #TODO: como calcular a trend scale
-            #trend_scale = res_ols.coef_[0] / np.std(res_stl.observed)
-            stats_df = {"Name": group_name, "var_exp_trend": round(prop_trend, 3), "var_exp_seasonal": round(prop_seasonal, 3), "var_exp_resid": round(prop_resid, 3),
-                "Trend Coef": round(res_ols.coef_[0], 3), "Trend R2": round(res_ols.score(
-                X, y), 3), "Trend Scale": round(trend_strength, 3), "Noise Scale": round(noise_scale, 3), 
-                "Seasonal Scale": round(seasonal_strength, 3)}
-            
-            decomp_stats_table = pd.concat([decomp_stats_table, pd.DataFrame(stats_df, index=[0])],ignore_index=True)
+
+            trend_strength = max(0, 1 - (var_resid/(var_seasonaladjsted)))
+            seasonal_strength = max(0, 1 - (var_resid/(var_detrended)))
+            noise_strength = max(0, 1 - (var_resid/(var_observed)))
+
+
+            stats_df = {"Name": group_name,
+                        "LinearT Coef": round(res_ols.coef_[0], 3), "LinearT R2": round(res_ols.score(X, y), 3),
+                        "F_T": round(trend_strength, 3), "F_S": round(seasonal_strength, 3), "F_R": round(noise_strength, 3)}
+
+            decomp_stats_table = pd.concat(
+                [decomp_stats_table, pd.DataFrame(stats_df, index=[0])], ignore_index=True)
 
         axes_stl[0, 0].set_ylabel("Observed")
         axes_stl[1, 0].set_ylabel("Trend")
@@ -748,7 +820,7 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, stored_table, stor
         stored_table = [table, table_columns]
         return html_matplotlib_stl, html_matplotlib_trend_regression, table, table_columns, stored_table
 
-    #empty list
+    # empty list
     set_progress((0, str(len(checklist_values))))
     return None, None, None, None, [None, None]
 
@@ -759,6 +831,7 @@ def plotseasonal(axes, res, ts_name):
     res.trend.plot(ax=axes[1], legend=False, xlabel="")
     res.seasonal.plot(ax=axes[2], legend=False, xlabel="")
     res.resid.plot(ax=axes[3], style=".", legend=False, xlabel="")
+    return None
 
 
 def plot_trend_regression(axes, observed, predicted, formula):
@@ -767,6 +840,65 @@ def plot_trend_regression(axes, observed, predicted, formula):
     axes[0].set_xlabel("")
     axes[0].legend(loc='upper right')
     return None
+
+
+
+@callback(
+    Output('map-statistics-container', 'children'),
+    [Input('ts-decomp-table', 'selected_rows'),
+     Input('statistics-dropdown', 'value'),
+     State('ts-decomp-table', 'data'),
+     State('timeagg-dropdown', 'value'),
+     State('spaceagg-dropdown', 'value')],
+    prevent_initial_call=True)
+def draw_map_from_selectedrows(selected_rows, data_feature, table_data, time_agg, space_agg):
+
+    if space_agg == "Cell":
+        space_feature_name = "location_id"
+        wkt_feature_name = "wkt_cell"
+    elif space_agg == "TAZ":
+        space_feature_name = "taz_name"
+        wkt_feature_name = "wkt_taz"
+    else:
+        space_feature_name = "township_name"
+        wkt_feature_name = "wkt_township"
+
+    gdf_data = get_dataset(time_agg, space_agg)[[space_feature_name,wkt_feature_name]].drop_duplicates()
+
+    filtered_table_df = pd.DataFrame([table_data[i] for i in selected_rows])
+
+    filtered_table_df = pd.merge(filtered_table_df, gdf_data, left_on="Name", right_on=space_feature_name)
+    filtered_table_df = filtered_table_df.drop(columns=["Name"])
+   
+    filtered_gdf = gpd.GeoDataFrame(filtered_table_df, geometry=wkt_feature_name)
+
+
+
+    colorscale = ['#ffffb2', '#fecc5c', '#fd8d3c', '#f03b20', '#bd0026']
+    classes = [0,0.2,0.4,0.6,0.8]
+    ctg = [str(cls)+"+" for cls in classes]
+    colorbar = dlx.categorical_colorbar(categories=ctg,
+                                        colorscale=colorscale,
+                                        width=300,
+                                        height=30,
+                                        position="bottomright")
+
+    geojson_layer_statistics = dl.GeoJSON(data=json.loads(filtered_gdf.to_json()),
+                         options=dict(style=style_handle),
+                         hoverStyle=arrow_function(
+                             dict(weight=5, color='#666', dashArray='')),
+                         hideout=dict(colorscale=colorscale, classes=classes,
+                                      style=style, colorProp=data_feature),
+                         id="geojson_layer_statistics")
+
+
+    map = dl.Map(id="my-map-statistics", children=[dl.TileLayer(), geojson_layer_statistics, colorbar, info_statistics], center=(
+        38.74, -9.14), zoom=12, style={'width': '100%', 'height': '50vh', 'margin': "auto", "display": "block"})
+
+
+    return map
+
+
 
 
 def get_dataset(time_agg, space_agg):
