@@ -76,8 +76,6 @@ CREATE TABLE MobilityData (
 
 SELECT create_hypertable ('MobilityData', 'time', chunk_time_interval => INTERVAL '1 month');
 
-
-
 CREATE TABLE IntersectsTaz (
    location_id INTEGER NOT NULL,
    taz_id INTEGER NOT NULL,

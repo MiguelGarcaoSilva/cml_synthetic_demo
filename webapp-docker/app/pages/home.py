@@ -5,9 +5,12 @@ import dash_leaflet as dl
 import dash_leaflet.express as dlx
 from dash_extensions.javascript import arrow_function, assign
 import plotly.express as px
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from statsmodels.tsa.seasonal import STL
+from statsmodels.tsa.seasonal import STL, seasonal_decompose
+import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression
+from datetime import date
 import matplotlib.pyplot as plt
 import os
 import json
@@ -37,7 +40,6 @@ engine_string = "postgresql+psycopg2://%s:%s@%s:%s/%s" % (
 engine = create_engine(engine_string)
 
 
-
 def get_info(feature=None, space_agg=None):
     header = [html.H4("Lisbon - Number of Terminals")]
     if not feature:
@@ -45,14 +47,14 @@ def get_info(feature=None, space_agg=None):
     if space_agg == "Cell":
         return header + [html.B(feature["properties"]["township_name"] + " - " + str(feature["properties"]["location_id"])), html.Br(),
                          "Aprox: {:0.0f} terminals".format(
-                             feature["properties"]["avg_terminals"]), html.Br(),
-                         "Approx In: {:0.0f}, Out:{:0.0f}, Staying:{:0.0f}  ".format(feature["properties"]["avg_terminals_in"], feature["properties"]["avg_terminals_out"], feature["properties"]["avg_terminals_stayed"]),  html.Br()]
+                             feature["properties"]["sum_terminals"]), html.Br(),
+                         "Approx In: {:0.0f}, Out:{:0.0f}, Staying:{:0.0f}  ".format(feature["properties"]["sum_terminals_in"], feature["properties"]["sum_terminals_out"], feature["properties"]["sum_terminals_stayed"]),  html.Br()]
     if space_agg == "TAZ":
         return header + [html.B(feature["properties"]["taz_name"] + " - " + str(feature["properties"]["taz_id"])), html.Br(),
-                         "Aprox: {:0.0f} terminals".format(feature["properties"]["avg_terminals"]), html.Br()]
+                         "Aprox: {:0.0f} terminals".format(feature["properties"]["sum_terminals"]), html.Br()]
     if space_agg == "Township":
         return header + [html.B(feature["properties"]["township_name"] + " - " + str(feature["properties"]["dicofre_code"])), html.Br(),
-                         "Aprox: {:0.0f} terminals".format(feature["properties"]["avg_terminals"]), html.Br()]
+                         "Aprox: {:0.0f} terminals".format(feature["properties"]["sum_terminals"]), html.Br()]
 
     return header
 
@@ -82,13 +84,13 @@ def human_format(num):
 # logging.warning("mob_data_aggregated_hourly_cell_withgeom_view:")
 # logging.warning(time.process_time() - start)
 
-#start = time.process_time()
-#query = "SELECT * FROM mob_data_aggregated_daily_cell_withgeom_view;"
-#gdf_mobdata_daily_cell = gpd.read_postgis(query, engine, geom_col="wkt_cell", crs="EPSG:4326")
-#gdf_mobdata_daily_cell["datetime"] = pd.to_datetime(gdf_mobdata_daily_cell["one_time"])
-#gdf_mobdata_daily_cell = gdf_mobdata_daily_cell.drop("one_time", axis=1)
-#logging.warning("mob_data_aggregated_daily_cell_withgeom_view:")
-#logging.warning(time.process_time() - start)
+# start = time.process_time()
+# query = "SELECT * FROM mob_data_aggregated_daily_cell_withgeom_view;"
+# gdf_mobdata_daily_cell = gpd.read_postgis(query, engine, geom_col="wkt_cell", crs="EPSG:4326")
+# gdf_mobdata_daily_cell["datetime"] = pd.to_datetime(gdf_mobdata_daily_cell["one_time"])
+# gdf_mobdata_daily_cell = gdf_mobdata_daily_cell.drop("one_time", axis=1)
+# logging.warning("mob_data_aggregated_daily_cell_withgeom_view:")
+# logging.warning(time.process_time() - start)
 
 start = time.process_time()
 query = "SELECT * FROM mob_data_aggregated_weekly_cell_withgeom_view;"
@@ -203,7 +205,7 @@ filtered_gdf_civiltownship = gdf_mobdata_monthly_township[(
     gdf_mobdata_monthly_township['datetime'] == gdf_mobdata_monthly_township['datetime'].unique()[0])].drop("datetime", axis=1)
 space_names = sorted(filtered_gdf_civiltownship["township_name"].unique())
 colorscale = ['#ffffb2', '#fecc5c', '#fd8d3c', '#f03b20', '#bd0026']
-max_value = filtered_gdf_civiltownship.avg_terminals.max()
+max_value = filtered_gdf_civiltownship.sum_terminals.max()
 classes_scale = math.floor(
     max_value/np.power(10, int(math.log10(max_value))))*np.power(10, int(math.log10(max_value)))
 classes = [i * (classes_scale // 5) for i in range(5)]
@@ -219,7 +221,7 @@ min_date_string = np.datetime_as_string(sorted_dates[0], unit='D')
 max_date_string = np.datetime_as_string(sorted_dates[-1], unit='D')
 marks = {numd: {"label": pd.to_datetime(str(date)).strftime('%d/%m/%Y'), "style": {"writing-mode": "vertical-rl"}}
          for numd, date in zip(numdate, sorted_dates)}
-style = dict(weight=2, opacity=1, color='white',
+style = dict(weight=2, opacity=1, color='blue',
              dashArray='3', fillOpacity=0.7)
 style_handle = assign("""function(feature, context){
     const {classes, colorscale, style, colorProp} = context.props.hideout;  // get props from hideout
@@ -236,7 +238,7 @@ geojson_layer = dl.GeoJSON(data=json.loads(filtered_gdf_civiltownship.to_json())
                            hoverStyle=arrow_function(
                                dict(weight=5, color='#666', dashArray='')),
                            hideout=dict(colorscale=colorscale, classes=classes,
-                                        style=style, colorProp="avg_terminals"),
+                                        style=style, colorProp="sum_terminals"),
                            id="geojson_layer")
 
 geojson_layer_statistics = dl.GeoJSON(data=json.loads(pd.DataFrame().to_json()),
@@ -277,10 +279,10 @@ layout = dbc.Container([
         html.Div([
             dcc.Dropdown(
                 options={
-                    'avg_terminals': 'Terminals',
-                    'avg_roaming_terminals': 'Roamings'
+                    'sum_terminals': 'Terminals',
+                    'sum_roaming_terminals': 'Roamings'
                 },
-                value='avg_terminals',
+                value='sum_terminals',
                 id='datafeature-dropdown', persistence=True, persistence_type="session"
             )
         ], style={'width': '30%', "float": "right", "text-align": "left"})
@@ -367,6 +369,8 @@ layout = dbc.Container([
         dcc.Dropdown(
             options={
                 'F_T': 'F_T',
+                'ROC':'ROC',
+                'Unified Score':'Unified Score',
                 'F_S': 'F_S',
                 'F_R': 'F_R'
             },
@@ -540,8 +544,8 @@ def update_plot(checklist_values, time_agg, space_agg, data_feature):
         space_feature_name = "township_name"
 
     data_feature_dict = {
-        'avg_terminals': 'Terminals',
-        'avg_roaming_terminals': 'Roamings'
+        'sum_terminals': 'Terminals',
+        'sum_roaming_terminals': 'Roamings'
     }
     gdf_data = get_dataset(time_agg, space_agg)
 
@@ -660,10 +664,10 @@ def update_figure_and_slider(time_agg, space_agg, data_feature, selected_time_ra
     return map, range_slider
 
 
+# TODO: ONLY working for non hourly data
 @callback(
     [
         Output("ts-decomp-stl-plots-iframe-memory", "data"),
-        Output("ts-decomp-trendregression-plots-iframe-memory", "data"),
         Output('ts-decomp-table', 'data'),
         Output('ts-decomp-table', 'columns'),
         Output("ts-decomp-table-store-memory", "data")
@@ -673,10 +677,11 @@ def update_figure_and_slider(time_agg, space_agg, data_feature, selected_time_ra
      State("decompose_algo-dropdown", "value"),
      State("ts-decomp-table-store-memory", "data"),
      State('ts-decomp-stl-plots-iframe-memory', "data"),
-     State('ts-decomp-trendregression-plots-iframe-memory', "data"),
      State('timeagg-dropdown', 'value'),
      State('spaceagg-dropdown', 'value'),
      State("datafeature-dropdown", "value"),
+     State("date-range", "start_date"),
+     State("date-range", "end_date"),
      State("checklist-store-memory", "data")],
     running=[
         (Output("timeagg-dropdown", "disabled"), True, False),
@@ -695,8 +700,7 @@ def update_figure_and_slider(time_agg, space_agg, data_feature, selected_time_ra
     progress=[Output("progress_bar", "value"), Output("progress_bar", "max")],
     prevent_initial_call=True,
     background=True)
-def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, decomp_algo, stored_table, stored_html_matplotlib_stl, stored_html_matplotlib_trend_regression, time_agg, space_agg, data_feature, checklist_values_memory):
-
+def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, decomp_algo, stored_table, stored_html_matplotlib_stl, time_agg, space_agg, data_feature, start_date, end_date, checklist_values_memory):
     if url != '/home':
         raise exceptions.PreventUpdate
 
@@ -708,7 +712,7 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, decomp_algo, store
     checklist_values = checklist_values_memory[0]
 
     if trigger_id == "url-home" and stored_table:
-        return stored_html_matplotlib_stl, stored_html_matplotlib_trend_regression, stored_table[0], stored_table[1], stored_table
+        return stored_html_matplotlib_stl, stored_table[0], stored_table[1], stored_table
 
     if space_agg == "Cell":
         space_feature_name = "location_id"
@@ -722,17 +726,22 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, decomp_algo, store
     filtered_gdf_data = gdf_data[gdf_data[space_feature_name].isin(
         checklist_values)]
 
+    if time_agg == "Hourly":
+        datetime_mask = (filtered_gdf_data['datetime'] >= start_hour) & (filtered_gdf_data['datetime'] <= end_hour)
+    else:
+        datetime_mask = (filtered_gdf_data['datetime'] >= start_date) & (filtered_gdf_data['datetime'] <= end_date)
+
+    filtered_gdf_data = filtered_gdf_data.loc[datetime_mask]
+
     table_df = filtered_gdf_data[[
         space_feature_name, "datetime", data_feature]]
 
     if checklist_values:
         fig_stl, axes_stl = plt.subplots(ncols=len(checklist_values), nrows=4, figsize=(
             len(checklist_values)*5, 10), squeeze=False)
-        fig_trend_regression, axes_trend_regression = plt.subplots(ncols=len(
-            checklist_values), nrows=1, figsize=(len(checklist_values)*5, 3), squeeze=False)
 
         decomp_stats_table = pd.DataFrame(
-            columns=["Name", "LinearT Coef", "LinearT R2", "F_T",  "F_S", "F_R"])
+            columns=["Name", "Slope", "R2", "ROC", "F_T", "Unified Score",  "F_S", "F_R"])
         for i, (group_name, df_group) in enumerate(table_df.groupby(space_feature_name)):
             set_progress((str(i + 1), str(len(checklist_values))))
 
@@ -747,57 +756,41 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, decomp_algo, store
             else:
                 time_serie = time_serie.asfreq('MS')
 
-            # Seasonally Decomposed Missing Value Imputation
-            # Perform Loess on temporarily filled NA's via linear interpolation
-            time_serie_temp = time_serie.interpolate(method="linear")
-            res = STL(time_serie_temp).fit()
-            # Temporarily imputed values are replaced with NAs again after obtaining the decomposition
-            # Seasonal component gets then removed (subtracted)
-            time_serie = time_serie.subtract(res.seasonal, axis=0)
-            # Selected imputation algorithm e.g. interpolation is applied on the deseasonalized series
-            time_serie = time_serie.interpolate(method="linear")
-            # After filling the NA gaps, the seasonal component is added to the deseasonalized series again.
-            time_serie = time_serie.add(res.seasonal, axis=0)
 
             if decomp_algo == "seasonal_decompose":
                 res = seasonal_decompose(time_serie, model="additive")
             else:  # stl
                 res = STL(time_serie).fit()
 
-            time_serie_no_seasonal = time_serie.subtract(res.seasonal, axis=0)
+
+            time_serie_trend = res.trend.dropna(axis=0).to_frame().reset_index()
+            time_serie_trend["Time"] = time_serie_trend.index.values
             model_ols = LinearRegression()
-            time_serie_no_seasonal['Time'] = np.arange(len(time_serie.index))
-            X = time_serie_no_seasonal.loc[:, ['Time']]
-            y = time_serie_no_seasonal.loc[:, data_feature]
+            X = time_serie_trend.loc[:, ['Time']]
+            y = time_serie_trend.loc[:, "trend"]
             res_ols = model_ols.fit(X, y)
-            y_pred = pd.Series(model_ols.predict(X), index=X.index)
+            y_pred = pd.Series(model_ols.predict(X), index=time_serie_trend.datetime)
             formula = f'y = {res_ols.coef_[0]:.2f}x + {res_ols.intercept_:.2f}'
 
-            plotseasonal(axes_stl[:, i], res, group_name)
-            plot_trend_regression(
-                axes_trend_regression[:, i], y, y_pred, formula)
-
+            plotseasonal(axes_stl[:, i], res,  y_pred, formula, group_name)
 
             # variances explained
             var_trend = np.var(res.trend)
             var_seasonal = np.var(res.seasonal)
             var_resid = np.var(res.resid)
-            var_seasonaladjsted = np.var(res.trend+res.resid)
-            var_detrended = np.var(res.seasonal+res.resid)
             var_observed = var_trend+var_seasonal+var_resid
-            prop_trend = (var_trend / var_observed)
-            prop_seasonal = (var_seasonal / var_observed)
-            prop_resid = (var_resid / var_observed)
 
-
-            trend_strength = max(0, 1 - (var_resid/(var_seasonaladjsted)))
-            seasonal_strength = max(0, 1 - (var_resid/(var_detrended)))
-            noise_strength = max(0, 1 - (var_resid/(var_observed)))
+            rete_change = (y_pred[-1] - y_pred[0]) / y_pred[0]
+            r2 = res_ols.score(X, y)      
+            trend_strength = max(0, 1 - (var_resid/np.var(res.trend+res.resid)))
+            comb_trend = rete_change * trend_strength * r2
+            seasonal_strength = max(0, 1 - (var_resid/np.var(res.seasonal+res.resid)))
+            noise_strength = var_resid/var_observed
 
 
             stats_df = {"Name": group_name,
-                        "LinearT Coef": round(res_ols.coef_[0], 3), "LinearT R2": round(res_ols.score(X, y), 3),
-                        "F_T": round(trend_strength, 3), "F_S": round(seasonal_strength, 3), "F_R": round(noise_strength, 3)}
+                        "Slope": round(res_ols.coef_[0], 3), "ROC": round(rete_change, 3), "R2": round(r2, 3),
+                        "F_T": round(trend_strength, 3),"Unified Score": round(comb_trend, 3), "F_S": round(seasonal_strength, 3), "F_R": round(noise_strength, 3)}
 
             decomp_stats_table = pd.concat(
                 [decomp_stats_table, pd.DataFrame(stats_df, index=[0])], ignore_index=True)
@@ -808,37 +801,29 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, decomp_algo, store
         axes_stl[3, 0].set_ylabel("Residual")
 
         fig_stl.tight_layout()
-        fig_trend_regression.tight_layout()
         html_matplotlib_stl = mpld3.fig_to_html(fig_stl)
-        html_matplotlib_trend_regression = mpld3.fig_to_html(
-            fig_trend_regression)
+
         table = decomp_stats_table.to_dict(orient='records')
         table_columns = [{'name': col, 'id': col}
                          for col in decomp_stats_table.columns]
         set_progress((0, str(len(checklist_values))))
 
         stored_table = [table, table_columns]
-        return html_matplotlib_stl, html_matplotlib_trend_regression, table, table_columns, stored_table
+        return html_matplotlib_stl, table, table_columns, stored_table
 
     # empty list
     set_progress((0, str(len(checklist_values))))
-    return None, None, None, None, [None, None]
+    return None, None, None, [None, None]
 
 
-def plotseasonal(axes, res, ts_name):
+def plotseasonal(axes, res, predicted, formula, ts_name):
     res.observed.plot(ax=axes[0], legend=False, xlabel="")
     axes[0].set_title(ts_name)
-    res.trend.plot(ax=axes[1], legend=False, xlabel="")
+    res.trend.plot(ax=axes[1], label="", xlabel="")
+    predicted.plot(ax=axes[1], color="r", label=formula, xlabel="")
+    axes[1].legend(loc='upper right')
     res.seasonal.plot(ax=axes[2], legend=False, xlabel="")
     res.resid.plot(ax=axes[3], style=".", legend=False, xlabel="")
-    return None
-
-
-def plot_trend_regression(axes, observed, predicted, formula):
-    observed.plot(ax=axes[0])
-    predicted.plot(ax=axes[0], color="r", label=formula)
-    axes[0].set_xlabel("")
-    axes[0].legend(loc='upper right')
     return None
 
 
@@ -873,9 +858,23 @@ def draw_map_from_selectedrows(selected_rows, data_feature, table_data, time_agg
     filtered_gdf = gpd.GeoDataFrame(filtered_table_df, geometry=wkt_feature_name)
 
 
+    if data_feature == "Unified Score" or data_feature == "ROC": 
+        # if positive
+        if filtered_gdf[data_feature].min() > 0  : 
+            classes = [0,0.2,0.4,0.6,0.8, 1]
+            colorscale = ['#ffffb2', '#fecc5c', '#fd8d3c', '#f03b20', '#bd0026', '#3d010d']
+        # if negative 
+        elif filtered_gdf[data_feature].min() <= 0 and filtered_gdf[data_feature].max() <=0:
+            classes = [-1, -0.8, -0.6, -0.4, -0.2, 0]
+            colorscale = ['#10097d','#4239d6','#39aad6','#a4e6a0','#ecffd1', '#ffffb2']
+        # if negative and positive
+        else: 
+            classes = [-1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1]
+            colorscale = ['#10097d','#4239d6','#39aad6','#a4e6a0','#ecffd1', '#ffffb2','#fecc5c', '#fd8d3c', '#f03b20', '#bd0026', '#3d010d']
 
-    colorscale = ['#ffffb2', '#fecc5c', '#fd8d3c', '#f03b20', '#bd0026']
-    classes = [0,0.2,0.4,0.6,0.8]
+    else:
+        classes = [0,0.2,0.4,0.6,0.8]
+        colorscale = ['#ffffb2', '#fecc5c', '#fd8d3c', '#f03b20', '#bd0026']
     ctg = [str(cls)+"+" for cls in classes]
     colorbar = dlx.categorical_colorbar(categories=ctg,
                                         colorscale=colorscale,
@@ -897,6 +896,7 @@ def draw_map_from_selectedrows(selected_rows, data_feature, table_data, time_agg
 
 
     return map
+
 
 
 

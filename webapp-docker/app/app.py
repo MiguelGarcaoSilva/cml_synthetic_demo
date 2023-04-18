@@ -22,8 +22,6 @@ app.layout = dbc.Container([
     dcc.Store(id='checklist-store-memory', data={},storage_type="session"),
     dcc.Store(id="ts-decomp-table-store-memory", data={}, storage_type="session"),
     dcc.Store(id='ts-decomp-stl-plots-iframe-memory', data={}, storage_type='session'),
-    dcc.Store(id='ts-decomp-trendregression-plots-iframe-memory', data={}, storage_type='session'),
-
 	dash.page_container
 ])
 if __name__ == '__main__':
