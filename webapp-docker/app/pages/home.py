@@ -76,13 +76,13 @@ def human_format(num):
 
 
 # aggregated by cell
-# start = time.process_time()
-# query = "SELECT * FROM mob_data_aggregated_hourly_cell_withgeom_view;"
-# gdf_mobdata_hourly_cell = gpd.read_postgis(query, engine, geom_col="wkt_cell", crs="EPSG:4326")
-# gdf_mobdata_hourly_cell["datetime"] = pd.to_datetime(gdf_mobdata_hourly_cell["one_time"])
-# gdf_mobdata_hourly_cell = gdf_mobdata_hourly_cell.drop("one_time", axis=1)
-# logging.warning("mob_data_aggregated_hourly_cell_withgeom_view:")
-# logging.warning(time.process_time() - start)
+start = time.process_time()
+query = "SELECT * FROM mob_data_aggregated_hourly_cell_withgeom_view;"
+gdf_mobdata_hourly_cell = gpd.read_postgis(query, engine, geom_col="wkt_cell", crs="EPSG:4326")
+gdf_mobdata_hourly_cell["datetime"] = pd.to_datetime(gdf_mobdata_hourly_cell["one_time"])
+gdf_mobdata_hourly_cell = gdf_mobdata_hourly_cell.drop("one_time", axis=1)
+logging.warning("mob_data_aggregated_hourly_cell_withgeom_view:")
+logging.warning(time.process_time() - start)
 
 # start = time.process_time()
 # query = "SELECT * FROM mob_data_aggregated_daily_cell_withgeom_view;"
@@ -156,14 +156,14 @@ logging.warning(time.process_time() - start)
 
 
 # aggregated by township
-# start = time.process_time()
-# query = "SELECT * FROM mob_data_aggregated_hourly_township_withgeom_view;"
-# gdf_mobdata_hourly_township = gpd.read_postgis(
-#     query, engine, geom_col="wkt_township", crs="EPSG:4326")
-# gdf_mobdata_hourly_township["datetime"] = pd.to_datetime(gdf_mobdata_hourly_township["one_time"])
-# gdf_mobdata_hourly_township = gdf_mobdata_hourly_township.drop("one_time", axis=1)
-# logging.warning("mob_data_aggregated_hourly_township_withgeom_view:")
-# logging.warning(time.process_time() - start)
+start = time.process_time()
+query = "SELECT * FROM mob_data_aggregated_hourly_township_withgeom_view;"
+gdf_mobdata_hourly_township = gpd.read_postgis(
+    query, engine, geom_col="wkt_township", crs="EPSG:4326")
+gdf_mobdata_hourly_township["datetime"] = pd.to_datetime(gdf_mobdata_hourly_township["one_time"])
+gdf_mobdata_hourly_township = gdf_mobdata_hourly_township.drop("one_time", axis=1)
+logging.warning("mob_data_aggregated_hourly_township_withgeom_view:")
+logging.warning(time.process_time() - start)
 
 start = time.process_time()
 query = "SELECT * FROM mob_data_aggregated_daily_township_withgeom_view;"

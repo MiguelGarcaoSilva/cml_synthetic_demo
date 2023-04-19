@@ -45,7 +45,7 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_hourly_taz_withgeom_view (taz_id, t
 SELECT taz_id, taz_name, one_time, sum_sum_terminals_per_taz_hour, sum_sum_roaming_terminals_per_taz_hour, wkt
 FROM (SELECT one_time, taz_id, SUM(sum_terminals_per_cell_hour) as sum_sum_terminals_per_taz_hour,  SUM(sum_roaming_terminals_per_cell_hour) as sum_sum_roaming_terminals_per_taz_hour
       FROM ( SELECT location_id, taz_id, date_trunc('hour', time) as one_time, SUM(n_terminals) as sum_terminals_per_cell_hour, SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_hour 
-             FROM MobilityData NATURAL JOIN SpatialLocation NATURAL JOIN IntersectsTaz 
+             FROM MobilityData NATURAL JOIN SpatialLocation
              GROUP BY (location_id, taz_id, one_time)) as total_per_cell_hour 
       GROUP BY (taz_id,one_time)) as TotalPertaz_andtime NATURAL JOIN TrafficAnalysisZone
 ORDER BY one_time DESC;
@@ -86,7 +86,7 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_daily_taz_withgeom_view (taz_id, ta
 SELECT taz_id, taz_name, one_time, sum_sum_terminals_per_taz_day, sum_sum_roaming_terminals_per_taz_day, wkt
 FROM (SELECT one_time, taz_id, SUM(sum_terminals_per_cell_day) as sum_sum_terminals_per_taz_day,  SUM(sum_roaming_terminals_per_cell_day) as sum_sum_roaming_terminals_per_taz_day
       FROM ( SELECT location_id, taz_id, date_trunc('day', time) as one_time, SUM(n_terminals) as sum_terminals_per_cell_day, SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_day 
-             FROM MobilityData NATURAL JOIN SpatialLocation NATURAL JOIN IntersectsTaz
+             FROM MobilityData NATURAL JOIN SpatialLocation
              GROUP BY (location_id, taz_id, one_time)) as total_per_cell_day 
       GROUP BY (taz_id,one_time)) as TotalPertaz_andtime NATURAL JOIN TrafficAnalysisZone
 ORDER BY one_time DESC;
@@ -128,7 +128,7 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_weekly_taz_withgeom_view (taz_id, t
 SELECT taz_id, taz_name, one_time, sum_sum_terminals_per_taz_week, sum_sum_roaming_terminals_per_taz_week, wkt
 FROM (SELECT one_time, taz_id, SUM(sum_terminals_per_cell_week) as sum_sum_terminals_per_taz_week,  SUM(sum_roaming_terminals_per_cell_week) as sum_sum_roaming_terminals_per_taz_week
       FROM ( SELECT location_id, taz_id, date_trunc('week', time) as one_time, SUM(n_terminals) as sum_terminals_per_cell_week, SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_week 
-             FROM MobilityData NATURAL JOIN SpatialLocation NATURAL JOIN IntersectsTaz 
+             FROM MobilityData NATURAL JOIN SpatialLocation
              GROUP BY (location_id, taz_id, one_time)) as total_per_cell_week 
       GROUP BY (taz_id,one_time)) as TotalPertaz_andtime NATURAL JOIN TrafficAnalysisZone
 ORDER BY one_time DESC;
@@ -169,7 +169,7 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_monthly_taz_withgeom_view (taz_id, 
 SELECT taz_id, taz_name, one_time, sum_sum_terminals_per_taz_month, sum_sum_roaming_terminals_per_taz_month, wkt
 FROM (SELECT one_time, taz_id, SUM(sum_terminals_per_cell_month) as sum_sum_terminals_per_taz_month,  SUM(sum_roaming_terminals_per_cell_month) as sum_sum_roaming_terminals_per_taz_month
       FROM ( SELECT location_id, taz_id, date_trunc('month', time) as one_time, SUM(n_terminals) as sum_terminals_per_cell_month, SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_month 
-             FROM MobilityData NATURAL JOIN SpatialLocation NATURAL JOIN IntersectsTaz 
+             FROM MobilityData NATURAL JOIN SpatialLocation
              GROUP BY (location_id, taz_id, one_time)) as total_per_cell_month 
       GROUP BY (taz_id,one_time)) as TotalPertaz_andtime NATURAL JOIN TrafficAnalysisZone
 ORDER BY one_time DESC;

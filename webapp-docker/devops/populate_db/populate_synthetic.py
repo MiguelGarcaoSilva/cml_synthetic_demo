@@ -108,20 +108,6 @@ def main():
                                      'dicofre_code': Integer, "wkt": Geometry("POLYGON", 4326)})
             logging.info(gdf_townships.head())
 
-            # Populating SpatialLocation Table
-            logging.info("Populating Database with %s into %s..." %
-                         ("vodafone_grelha.csv", "SpatialLocation"))
-            df_spatiallocation = pd.read_csv(os.path.join(path_grelha_folder, "vodafone_grelha.csv"), usecols=[
-                                             "grelha_id", "dicofre", "grelha_x", "grelha_y", "latitude", "longitude", "nome", "wkt"], sep=";")
-            df_spatiallocation["wkt"] = df_spatiallocation["wkt"].apply(
-                wkt.loads)
-            df_spatiallocation.columns = [
-                "location_id", "dicofre_code", "x_square", "y_square", "latitude", "longitude", "loc_name", "wkt"]
-            gdf_spatiallocation = gpd.GeoDataFrame(
-                df_spatiallocation, crs="EPSG:4326", geometry="wkt")
-            gdf_spatiallocation.to_postgis("spatiallocation", engine_synthetic, if_exists="append", dtype={
-                                           'location_id': Integer, 'dicofre_code': Integer, "wkt": Geometry("POLYGON", 4326)})
-            logging.info(gdf_spatiallocation.head())
 
             # Populating TrafficAnalysisZone Table
             logging.info("Populating Database with %s into %s..." %
@@ -138,29 +124,70 @@ def main():
                                'taz_id': Integer, "geometry": Geometry("POLYGON", 4326)})
             logging.info(gpd_taz.head())
 
-
-            # Populating IntersectsTaz Table
+            # Populating SpatialLocation Table
             logging.info("Populating Database with %s into %s..." %
-                         ("Zonamento_zone_Project.shp", "IntersectsTaz"))
+                         ("vodafone_grelha.csv", "SpatialLocation"))
 
-            cellid_tazid_intercepted = {}         
-            for _, cell in gdf_spatiallocation.iterrows():
-                taz_intercepted = [gpd_taz.iloc[[i]]["taz_id"].values[0] for i, x in enumerate(gpd_taz.intersects(cell["wkt"])) if x]
-                cellid_tazid_intercepted[cell["location_id"]] = taz_intercepted
+            #not using the dicofre code from the file as it seems to be wrong.
+            df_spatiallocation = pd.read_csv(os.path.join(path_grelha_folder, "vodafone_grelha.csv"), usecols=[
+                                             "grelha_id", "grelha_x", "grelha_y", "latitude", "longitude", "nome", "wkt"], sep=";")
+            df_spatiallocation["wkt"] = df_spatiallocation["wkt"].apply(
+                wkt.loads)
+            df_spatiallocation.columns = [
+                "location_id", "x_square", "y_square", "latitude", "longitude", "loc_name", "wkt"]
+            gdf_spatiallocation = gpd.GeoDataFrame(
+                df_spatiallocation, crs="EPSG:4326", geometry="wkt")
 
-            df_cellintersectstaz = pd.DataFrame.from_dict(cellid_tazid_intercepted, orient='index')
-            df_cellintersectstaz = df_cellintersectstaz.assign(taz_id = df_cellintersectstaz.stack().groupby(level=0).agg(list))
-            df_cellintersectstaz = df_cellintersectstaz[["taz_id"]]
-            df_cellintersectstaz = df_cellintersectstaz.rename_axis('location_id').reset_index(level=0)
-            df_cellintersectstaz = df_cellintersectstaz.explode(["taz_id"])
-            #remove cells that dont intersect any taz
-            df_cellintersectstaz= df_cellintersectstaz[df_cellintersectstaz['taz_id'].notna()]
-            df_cellintersectstaz.to_sql("intersectstaz", engine_synthetic,
-                            index=False, if_exists="append")
-            logging.info(df_cellintersectstaz.head())
+            # Iterate through each row in gdf_spatiallocation
+            for index, row in gdf_spatiallocation.iterrows():
+                # Get the cell geometry
+                cell = row['wkt']
+                
+                # Find all the townships that intersect the cell
+                intersecting_townships = gdf_townships[gdf_townships.intersects(cell)]
+                
+                if not intersecting_townships.empty:
+                    # Find the township with the highest intersection area
+                    intersecting_townships['area'] = intersecting_townships.apply(lambda x: x['wkt'].buffer(0).intersection(cell).area, axis=1)
+                    township = intersecting_townships.sort_values(by='area', ascending=False).iloc[0]
+                    # Set the value of the "dicofre_code" column for the current row to the selected township
+                    gdf_spatiallocation.loc[index, 'dicofre_code'] = int(township['dicofre_code'])
+                else:
+                    # Find the closest township
+                    gdf_townships['distance'] = gdf_townships.apply(lambda x: x['wkt'].buffer(0).distance(cell), axis=1)
+                    township = gdf_townships.sort_values(by='distance').iloc[0]
+                    # Set the value of the "dicofre_code" column for the current row to the selected township
+                    gdf_spatiallocation.loc[index, 'dicofre_code'] = int(township['dicofre_code'])
+
+            gdf_spatiallocation['dicofre_code'] = gdf_spatiallocation['dicofre_code'].astype(int)
 
 
+            # Iterate through each row in gdf_spatiallocation
+            for index, row in gdf_spatiallocation.iterrows():
+                # Get the cell geometry
+                cell = row['wkt']
+                
+                # Find all the TAZs that intersect the cell
+                intersecting_tazs = gpd_taz[gpd_taz.intersects(cell)]
+                
+                if not intersecting_tazs.empty:
+                    # Find the TAZ with the highest intersection area
+                    intersecting_tazs['area'] = intersecting_tazs.apply(lambda x: x['wkt'].buffer(0).intersection(cell).area, axis=1)
+                    taz = intersecting_tazs.sort_values(by='area', ascending=False).iloc[0]
+                    # Set the value of the "taz_id" column for the current row to the selected TAZ
+                    gdf_spatiallocation.loc[index, 'taz_id'] = int(taz['taz_id'])
+                else:
+                    # Find the closest TAZ
+                    gpd_taz['distance'] = gpd_taz.apply(lambda x: x['wkt'].buffer(0).distance(cell), axis=1)
+                    taz = gpd_taz.sort_values(by='distance').iloc[0]
+                    # Set the value of the "taz_id" column for the current row to the selected TAZ
+                    gdf_spatiallocation.loc[index, 'taz_id'] = int(taz['taz_id'])
 
+            gdf_spatiallocation['taz_id'] = gdf_spatiallocation['taz_id'].astype(int)
+            gdf_spatiallocation.to_postgis("spatiallocation", engine_synthetic, if_exists="append", dtype={
+                                           'location_id': Integer,'taz_id':Integer, 'dicofre_code': Integer, "wkt": Geometry("POLYGON", 4326)})
+
+            
 
             # Populating MobilityData Table
             logging.info("Populating Database with %s into %s..." % (

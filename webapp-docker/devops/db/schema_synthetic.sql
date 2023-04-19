@@ -7,7 +7,6 @@ DROP TABLE IF EXISTS SpatialLocation CASCADE;
 DROP TABLE IF EXISTS CivilTownShip CASCADE;
 DROP TABLE IF EXISTS Country CASCADE;
 DROP TABLE IF EXISTS TrafficAnalysisZone CASCADE;
-DROP TABLE IF EXISTS IntersectsTaz CASCADE;
 
 
 CREATE TABLE Country (
@@ -44,6 +43,7 @@ CREATE INDEX CivilTownShip_wkt_idx ON CivilTownShip USING GIST (wkt);
 CREATE TABLE SpatialLocation (
    location_id  SMALLINT NOT NULL UNIQUE,
    dicofre_code INTEGER NOT NULL,
+   taz_id INTEGER NOT NULL,
    loc_name VARCHAR NOT NULL,
    x_square SMALLINT NOT NULL,
    y_square SMALLINT NOT NULL,
@@ -51,7 +51,9 @@ CREATE TABLE SpatialLocation (
    longitude DECIMAL(9,6) NOT NULL,
    wkt GEOMETRY(MULTIPOLYGON, 4326),
    PRIMARY KEY(location_id),
-   CONSTRAINT fk_civiltownship FOREIGN KEY (dicofre_code) REFERENCES CivilTownShip(dicofre_code) ON DELETE CASCADE
+   CONSTRAINT fk_civiltownship FOREIGN KEY (dicofre_code) REFERENCES CivilTownShip(dicofre_code) ON DELETE CASCADE,
+   CONSTRAINT fk_trafficanalysiszone FOREIGN KEY (taz_id) REFERENCES TrafficAnalysisZone(taz_id) ON DELETE CASCADE
+
 );
 
 CREATE INDEX SpatialLocation_latlong_idx ON SpatialLocation USING BTREE(latitude,longitude);
@@ -76,9 +78,3 @@ CREATE TABLE MobilityData (
 
 SELECT create_hypertable ('MobilityData', 'time', chunk_time_interval => INTERVAL '1 month');
 
-CREATE TABLE IntersectsTaz (
-   location_id INTEGER NOT NULL,
-   taz_id INTEGER NOT NULL,
-   PRIMARY KEY(location_id, taz_id),
-   CONSTRAINT fk_spatiallocation FOREIGN KEY (location_id) REFERENCES SpatialLocation(location_id) ON DELETE CASCADE
-);
