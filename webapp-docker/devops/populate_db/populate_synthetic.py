@@ -1,16 +1,17 @@
 #!/usr/bin/python3
+from dotenv import load_dotenv, main
 import pandas as pd
 import geopandas as gpd
 import numpy as np
+from shapely import wkt
+from sqlalchemy import create_engine, Integer
+from geoalchemy2 import Geometry
+
 import psycopg2
 import psycopg2.extras
 import logging
 import json
 import os
-from shapely import wkt
-from sqlalchemy import create_engine, Integer
-from geoalchemy2 import Geometry
-
 
 
 def main():
@@ -52,16 +53,18 @@ def main():
     finally:
         if dbConn:
 
+            #path_eixos_folder = "../../Data/CML Data/VODAFONE_EIXOS_2021/"
             path_grelha_folder = "/wd/VODAFONE_GRELHA_2021/"
             path_taz_folder = "/wd/TAZ/"
             path_data_synthetic = "/wd/CML Mobility/"
-
 
             # Populating Country Table
             logging.info("Populating Database with %s into %s..." %
                          ("country_list.csv", "Country"))
             df_countries = pd.read_csv(os.path.join(path_grelha_folder, "country_list.csv"), usecols=[
                                        "name", "alpha-3", "country-code"])
+
+
             df_countries_mapping = pd.read_csv(os.path.join(
                 path_grelha_folder, "df_country_mapping.csv"), usecols=["country_string", "closest_match"])
             country_mapping_dict = dict(zip(
@@ -76,8 +79,6 @@ def main():
                                     "alpha3_iso_code", "numeric_iso_code"]
             df_countries.to_sql("country", engine_synthetic,
                                 index=False, if_exists="append")
-
-            logging.info(df_countries.head())
 
             # Populating CivilTownship Table
             logging.info("Populating Database with %s into %s..." %
@@ -106,7 +107,6 @@ def main():
             gdf_townships = gdf_townships.set_geometry("wkt")
             gdf_townships.to_postgis("civiltownship", engine_synthetic, if_exists="append", dtype={
                                      'dicofre_code': Integer, "wkt": Geometry("POLYGON", 4326)})
-            logging.info(gdf_townships.head())
 
 
             # Populating TrafficAnalysisZone Table
@@ -122,12 +122,10 @@ def main():
             gpd_taz = gpd_taz.set_geometry("wkt")
             gpd_taz.to_postgis("trafficanalysiszone", engine_synthetic, if_exists="append", dtype={
                                'taz_id': Integer, "geometry": Geometry("POLYGON", 4326)})
-            logging.info(gpd_taz.head())
-
+            
             # Populating SpatialLocation Table
             logging.info("Populating Database with %s into %s..." %
                          ("vodafone_grelha.csv", "SpatialLocation"))
-
             #not using the dicofre code from the file as it seems to be wrong.
             df_spatiallocation = pd.read_csv(os.path.join(path_grelha_folder, "vodafone_grelha.csv"), usecols=[
                                              "grelha_id", "grelha_x", "grelha_y", "latitude", "longitude", "nome", "wkt"], sep=";")
@@ -137,7 +135,6 @@ def main():
                 "location_id", "x_square", "y_square", "latitude", "longitude", "loc_name", "wkt"]
             gdf_spatiallocation = gpd.GeoDataFrame(
                 df_spatiallocation, crs="EPSG:4326", geometry="wkt")
-
             # Iterate through each row in gdf_spatiallocation
             for index, row in gdf_spatiallocation.iterrows():
                 # Get the cell geometry
@@ -158,10 +155,7 @@ def main():
                     township = gdf_townships.sort_values(by='distance').iloc[0]
                     # Set the value of the "dicofre_code" column for the current row to the selected township
                     gdf_spatiallocation.loc[index, 'dicofre_code'] = int(township['dicofre_code'])
-
             gdf_spatiallocation['dicofre_code'] = gdf_spatiallocation['dicofre_code'].astype(int)
-
-
             # Iterate through each row in gdf_spatiallocation
             for index, row in gdf_spatiallocation.iterrows():
                 # Get the cell geometry
@@ -182,22 +176,20 @@ def main():
                     taz = gpd_taz.sort_values(by='distance').iloc[0]
                     # Set the value of the "taz_id" column for the current row to the selected TAZ
                     gdf_spatiallocation.loc[index, 'taz_id'] = int(taz['taz_id'])
-
             gdf_spatiallocation['taz_id'] = gdf_spatiallocation['taz_id'].astype(int)
             gdf_spatiallocation.to_postgis("spatiallocation", engine_synthetic, if_exists="append", dtype={
-                                           'location_id': Integer,'taz_id':Integer, 'dicofre_code': Integer, "wkt": Geometry("POLYGON", 4326)})
-
+                                           'location_id': Integer,'taz_id':Integer, 'dicofre_code': Integer, "wkt": Geometry("POLYGON", 4326)})   
             
 
             # Populating MobilityData Table
             logging.info("Populating Database with %s into %s..." % (
                 path_data_synthetic+'synthetic_data.csv', "MobilityData"))
 
-            synthetic_df = pd.read_csv(path_data_synthetic+'/synthetic_data.csv', header=0, index_col=0)
-
-            synthetic_df.to_sql("mobilitydata", engine_synthetic,
-                        index=False, if_exists="append")
+            #only columns with header n_terminals, roaming_terminals, n_phonecalls
+            synthetic_df = pd.read_csv(path_data_synthetic+'synthetic_data.csv', header=0, usecols=["time", "location_id", "n_terminals", "n_roaming_terminals", "n_phonecalls"])
             logging.info(synthetic_df.head())
+            #send to database in batches without index
+            synthetic_df.to_sql("mobilitydata", engine_synthetic, if_exists="append", index=False, chunksize=1000)
 
             cursor.close()
             dbConn.close()

@@ -27,7 +27,6 @@ CREATE TABLE TrafficAnalysisZone (
 );
 
 
-
 CREATE TABLE CivilTownShip (
    dicofre_code INTEGER NOT NULL,
    township_name VARCHAR NOT NULL,
@@ -53,7 +52,6 @@ CREATE TABLE SpatialLocation (
    PRIMARY KEY(location_id),
    CONSTRAINT fk_civiltownship FOREIGN KEY (dicofre_code) REFERENCES CivilTownShip(dicofre_code) ON DELETE CASCADE,
    CONSTRAINT fk_trafficanalysiszone FOREIGN KEY (taz_id) REFERENCES TrafficAnalysisZone(taz_id) ON DELETE CASCADE
-
 );
 
 CREATE INDEX SpatialLocation_latlong_idx ON SpatialLocation USING BTREE(latitude,longitude);
@@ -66,15 +64,17 @@ CREATE TABLE MobilityData (
    location_id INTEGER NOT NULL,
    n_terminals INTEGER NOT NULL,
    n_roaming_terminals INTEGER NOT NULL,
-   n_terminals_stayed INTEGER NOT NULL,
-   n_roaming_terminals_stayed INTEGER NOT NULL,
-   n_terminals_in INTEGER NOT NULL,
-   n_terminals_out INTEGER NOT NULL,
-   n_roaming_terminals_in INTEGER NOT NULL,
-   n_roaming_terminals_out INTEGER NOT NULL,
+   -- n_terminals_stayed INTEGER NOT NULL,
+   -- n_roaming_terminals_stayed INTEGER NOT NULL,
+   -- n_terminals_in INTEGER NOT NULL,
+   -- n_terminals_out INTEGER NOT NULL,
+   -- n_roaming_terminals_in INTEGER NOT NULL,
+   -- n_roaming_terminals_out INTEGER NOT NULL,
+   -- n_terminals_with_active_data INTEGER NOT NULL,
+   -- n_roaming_terminals_with_active_data INTEGER NOT NULL,
+   n_phonecalls INTEGER NOT NULL,
    PRIMARY KEY (time, location_id),
    CONSTRAINT fk_location FOREIGN KEY (location_id) REFERENCES SpatialLocation(location_id) ON DELETE CASCADE
 );
 
 SELECT create_hypertable ('MobilityData', 'time', chunk_time_interval => INTERVAL '1 month');
-

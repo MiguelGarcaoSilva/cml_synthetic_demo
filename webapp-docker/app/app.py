@@ -19,9 +19,17 @@ app = Dash(server=server, external_stylesheets=[
 app.layout = dbc.Container([
     dbc.Row(dbc.Col(html.H2("Mobility Data in Lisbon"), width={'size': 12, 'offset': 0, 'order': 0}), style={
             'textAlign': 'center', 'paddingBottom': '1%'}),
-    dcc.Store(id='checklist-store-memory', data={},storage_type="session"),
+    dcc.Store(id='timeagg-store-memory', data={}, storage_type="session"),
+    dcc.Store(id='spaceagg-store-memory', data={}, storage_type="session"),
+    dcc.Store(id='checklist-store-memory', data={}, storage_type="session"),
+    dcc.Store(id='datafeature-store-memory', data={}, storage_type="session"),
+    dcc.Store(id='date-range-store-memory', data={'start_date': None, 'end_date': None}, storage_type="session"),
     dcc.Store(id="ts-decomp-table-store-memory", data={}, storage_type="session"),
+    dcc.Store(id="ts-decomp-resids-store-memory", data={}, storage_type="session"),
     dcc.Store(id='ts-decomp-stl-plots-iframe-memory', data={}, storage_type='session'),
+    dcc.Store(id='motifsizes-store-memory', data={}, storage_type="session"),
+    dcc.Store(id='resid-mp-table-store-memory', data={}, storage_type='session'),
+
 	dash.page_container
 ])
 if __name__ == '__main__':
