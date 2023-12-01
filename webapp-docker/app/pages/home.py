@@ -340,7 +340,8 @@ def info_hover_statistics(feature, space_agg):
     Input("timeagg-dropdown", "value"),
     Input('spaceagg-dropdown', 'value'),
     State("checklist-store-memory", "data"),
-    prevent_initial_call=True
+    prevent_initial_call=True,
+    background=True
 )
 def sync_checklists(space_selected, all_selected, time_agg, space_agg, stored_checklists):
 
@@ -421,7 +422,8 @@ def change_between_time_data_range(time_agg,space_agg):
     Output("datafeature-dropdown", "options"),
     Output("datafeature-dropdown-decomp", "options"),
     Input("spaceagg-dropdown","value"),
-    State('timeagg-dropdown', 'value')
+    State('timeagg-dropdown', 'value'),
+    background=True
 )
 def update_datafeature_dropdown(space_agg, time_agg):
 
@@ -508,7 +510,8 @@ def update_checklist_from_map_and_spacedropdown(selected_space, space_agg, time_
     State('timeagg-dropdown', 'value'),
     State('spaceagg-dropdown', 'value'),
     State("datafeature-dropdown", "value"),
-    prevent_initial_callback=True
+    prevent_initial_callback=True,
+    background=True
 )
 def update_plot(checklist_values, time_agg, space_agg , data_feature):
     if space_agg == "Cell":
