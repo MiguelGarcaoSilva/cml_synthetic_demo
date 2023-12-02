@@ -677,10 +677,9 @@ def perform_multidimmatrixprofile(time_series, location_name, data_features, nor
 
     for i, m in enumerate(m_dict):
 
-        logging.warning(multivar_time_serie)
 
-        multivar_time_serie_array = time_series.to_numpy().T
-        
+        multivar_time_serie_array = multivar_time_serie.to_numpy().T
+
         #mp - (numpy.ndarray) – The multi-dimensional matrix profile. 
         #Each row of the array corresponds to each matrix profile for a given dimension 
         # (i.e., the first row is the 1-D matrix profile and the second row is the 2-D matrix profile).
@@ -692,14 +691,14 @@ def perform_multidimmatrixprofile(time_series, location_name, data_features, nor
 
         #av = np.ones(len(multivar_time_serie_array[0]) - m + 1)
 
-        #TODO: bias basta fazer av multidim?
+        #TODO: works for multivariate?
         #if simplicity_bias:
         #    av = make_av_simplicitybias(time_series, m)
 
         #if actionability_options:
         #    av *= make_av_actionability(time_series, m, actionability_options)
 
-        #TODO: works para multivariate?
+        #TODO: works for multivariate?
         #cmp = mp + ((1-av) * np.max(mp))
         #mp = cmp
 
@@ -709,8 +708,6 @@ def perform_multidimmatrixprofile(time_series, location_name, data_features, nor
 
             dimensions = motif_subspaces[motif_indice]
             
-            logging.warning(dimensions)
-
             #remove filling values of -1 and Nansfrom motif_indices and match_distances
             match_indices = match_indices[match_indices != -1]
             match_distances = motif_distances[motif_indice]
@@ -723,33 +720,54 @@ def perform_multidimmatrixprofile(time_series, location_name, data_features, nor
             #get the multidim time serie motif in the dimensions
             multivar_subsequence = multivar_time_serie_array[dimensions][:,match_indices[0]:match_indices[0]+m]
 
+            #minmax normalize  multidim subsequence
+            min_values = multivar_subsequence.min(axis=1, keepdims=True)
+            max_values = multivar_subsequence.max(axis=1, keepdims=True)
 
-            #minmax normalize subsequence
-            #norm_subsequence = (subsequence - np.min(subsequence)) / (np.max(subsequence) - np.min(subsequence))
-            #ce_norm_subsequence = subsequence_complexity(norm_subsequence)
-            #norm_ce_norm_subsequence = ce_norm_subsequence/np.sqrt(len(subsequence)-1)
-            norm_ce_norm_subsequence = 0
+            normalized_multivar_subsequence = (multivar_subsequence - min_values) / (max_values - min_values)
 
-            #complexity_zerocrossings = subsequence_complexity_zerocrossings(subsequence)
+            ce_norm_subsequence = multivar_subsequence_complexity(normalized_multivar_subsequence)
+            norm_ce_norm_subsequence = ce_norm_subsequence/(np.sqrt(len(multivar_subsequence[0])-1)*len(dimensions))
+
             max_dist = np.max(match_distances)
             min_dist = np.min(match_distances[1:])
             avg_dist = np.mean(match_distances[1:])
             std_dist = np.std(match_distances[1:])
-            med_dist = np.median(match_distances[1:])
+            if not k_unified or k_unified > len(match_distances[1:]):
+                med_dist = np.median(match_distances[1:])
+            else:
+                med_dist = np.median(match_distances[1:int(k_unified)+1])
+
             
             #D is distance profile between the motif and Time serie
-            #D = stumpy.mass(subsequence.to_numpy(), time_series.to_numpy(), normalize = normalize)
-            #max_allowed_dist = np.nanmax([np.nanmean(D) - 2.0 * np.nanstd(D), np.nanmin(D)])
-            #excl_zone = np.ceil(m/4)
+            n = time_series.to_numpy().shape[0]
+            D = np.empty((n-m+1, len(dimensions)))
+            for i, dimension in enumerate(dimensions):
+                D[:,i] = stumpy.mass(multivar_subsequence[i], multivar_time_serie_array[dimension], normalize=normalize)
+            D = np.mean(D, axis=1)
+            max_allowed_dist = np.nanmax([np.nanmean(D) - 2.0 * np.nanstd(D), np.nanmin(D)])
+            excl_zone = np.ceil(m/4)
 
             weights = list(map(float, unified_weights.split(",")))
             w1, w2, w3 = weights[0], weights[1], weights[2]
 
-            #TODO: unified score
-            #unified = w1 * (1-(med_dist/max_allowed_dist)) + w2 * (len(match_indices)/(len(time_serie)-excl_zone)) + w3 * norm_ce_norm_subsequence
-            unified = 0
+            unified = w1 * (1-(med_dist/max_allowed_dist)) + w2 * (len(match_indices)/(n-excl_zone)) + w3 * norm_ce_norm_subsequence
+            
 
-            stats_df = {"ID": location_name+"_"+str(motif_index), "Features":",".join([data_features[i] for i in dimensions]), "m":m, 
+            # calculate variance explained by the motif
+            time_series_nomatches = multivar_time_serie_array.copy()
+            #list of indexes to remove
+            indexes_to_remove = [i for index in match_indices for i in range(index, index + m)]
+            #put zero in the indexes to remove
+            time_series_nomatches[:,indexes_to_remove] = 0
+
+            #calculate variance explained by the motif TODO:
+            variance_explained = 0
+            #data features are now the ones in the dimensions
+            used_features = [data_features[i] for i in dimensions]
+            stats_df = {"ID": location_name+"_"+str(motif_index), "k":len(dimensions),
+                        "Features":",".join(used_features),
+                         "m":m,
                         "#Matches": len(match_indices)-1,
                          "Indices":str(match_indices),
                          "CE": np.around(norm_ce_norm_subsequence,3), "Score Unified": np.around(unified,3),
