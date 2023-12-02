@@ -22,15 +22,13 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_hourly_cell_view (
     location_id, 
     one_time, 
     sum_terminals, 
-    sum_roaming_terminals,
-    sum_phonecalls
+    sum_roaming_terminals
 ) WITH (timescaledb.continuous) AS 
     SELECT 
         location_id, 
         time_bucket('1 hour', time) as one_time, 
         SUM(n_terminals) as sum_terminals,
-        SUM(n_roaming_terminals) as sum_roaming_terminals,
-        SUM(n_phonecalls) as sum_phonecalls
+        SUM(n_roaming_terminals) as sum_roaming_terminals
     FROM MobilityData
     GROUP BY (location_id, one_time);
 
@@ -41,9 +39,8 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_hourly_cell_withgeom_view (
     one_time,
     sum_terminals,
     sum_roaming_terminals,
-    sum_phonecalls,
     wkt_cell) AS
-    SELECT location_id, CivilTownShip.township_name, one_time, sum_terminals, sum_roaming_terminals, sum_phonecalls, SpatialLocation.wkt
+    SELECT location_id, CivilTownShip.township_name, one_time, sum_terminals, sum_roaming_terminals,  SpatialLocation.wkt
     FROM mob_data_aggregated_hourly_cell_view NATURAL JOIN SpatialLocation JOIN CivilTownShip ON (SpatialLocation.dicofre_code=CivilTownShip.dicofre_code)
     ORDER BY one_time DESC;
 
@@ -55,7 +52,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_hourly_taz_withgeom_view (
     one_time, 
     sum_terminals, 
     sum_roaming_terminals,
-    sum_phonecalls,
     wkt_taz
 ) AS
 SELECT 
@@ -64,17 +60,14 @@ SELECT
     one_time, 
     sum_sum_terminals_per_taz_hour, 
     sum_sum_roaming_terminals_per_taz_hour, 
-    sum_sum_phonecalls,
     wkt
 FROM (
     SELECT one_time, total_per_cell_hour.taz_id,
     SUM(sum_terminals_per_cell_hour) as sum_sum_terminals_per_taz_hour,
-    SUM(sum_roaming_terminals_per_cell_hour) as sum_sum_roaming_terminals_per_taz_hour,
-    SUM(sum_phonecalls_per_cell_hour) as sum_sum_phonecalls
+    SUM(sum_roaming_terminals_per_cell_hour) as sum_sum_roaming_terminals_per_taz_hour
     FROM (
         SELECT location_id, taz_id, date_trunc('hour', time) as one_time, SUM(n_terminals) as sum_terminals_per_cell_hour,
-        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_hour,
-        SUM(n_phonecalls) as sum_phonecalls_per_cell_hour
+        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_hour
         FROM MobilityData NATURAL JOIN SpatialLocation
         GROUP BY (location_id, taz_id, one_time)
     ) as total_per_cell_hour
@@ -101,7 +94,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_hourly_township_withgeom_view (
     one_time,
     sum_terminals, 
     sum_roaming_terminals, 
-    sum_phonecalls,
     wkt_township) AS
 SELECT 
     dicofre_code, 
@@ -109,16 +101,13 @@ SELECT
     one_time,
     sum_sum_terminals_per_township_hour,
     sum_sum_roaming_terminals_per_township_hour,
-    sum_sum_phonecalls,
     wkt
 FROM (
     SELECT one_time, total_per_cell_hour.dicofre_code, SUM(sum_terminals_per_cell_hour) as sum_sum_terminals_per_township_hour, 
-    SUM(sum_roaming_terminals_per_cell_hour) as sum_sum_roaming_terminals_per_township_hour,
-    SUM(sum_phonecalls_per_cell_hour) as sum_sum_phonecalls
+    SUM(sum_roaming_terminals_per_cell_hour) as sum_sum_roaming_terminals_per_township_hour
     FROM (
         SELECT location_id, dicofre_code, date_trunc('hour', time) as one_time, SUM(n_terminals) as sum_terminals_per_cell_hour,
-        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_hour,
-        SUM(n_phonecalls) as sum_phonecalls_per_cell_hour
+        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_hour
         FROM MobilityData NATURAL JOIN SpatialLocation
         GROUP BY (location_id, dicofre_code, one_time)
     ) as total_per_cell_hour
@@ -143,15 +132,13 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_daily_cell_view (
     location_id , 
     one_time, 
     sum_terminals, 
-    sum_roaming_terminals,
-    sum_phonecalls)
+    sum_roaming_terminals)
 WITH (timescaledb.continuous) AS 
     SELECT 
     location_id,
     time_bucket('1 day', time) as one_time,
     SUM(n_terminals) as sum_terminals,
-    SUM(n_roaming_terminals) as sum_roaming_terminals,
-    SUM(n_phonecalls) as sum_phonecalls
+    SUM(n_roaming_terminals) as sum_roaming_terminals
     FROM MobilityData
     GROUP BY (location_id, one_time);
 
@@ -162,7 +149,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_daily_cell_withgeom_view (
     one_time, 
     sum_terminals, 
     sum_roaming_terminals,
-    sum_phonecalls,
     wkt_cell) AS
     SELECT 
         location_id, 
@@ -170,7 +156,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_daily_cell_withgeom_view (
         one_time,
         sum_terminals,
         sum_roaming_terminals,
-        sum_phonecalls,
         SpatialLocation.wkt
     FROM mob_data_aggregated_daily_cell_view NATURAL JOIN SpatialLocation JOIN CivilTownShip ON (SpatialLocation.dicofre_code=CivilTownShip.dicofre_code)
     ORDER BY one_time DESC;
@@ -182,7 +167,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_daily_taz_withgeom_view (
     one_time,
     sum_terminals,
     sum_roaming_terminals,
-    sum_phonecalls,
     wkt_taz) AS 
 SELECT 
     taz_id, 
@@ -190,23 +174,20 @@ SELECT
     one_time, 
     sum_sum_terminals_per_taz_day, 
     sum_sum_roaming_terminals_per_taz_day, 
-    sum_sum_phonecalls,
     wkt
 FROM (
     SELECT 
     one_time, 
     total_per_cell_day.taz_id,
     SUM(sum_terminals_per_cell_day) as sum_sum_terminals_per_taz_day,
-    SUM(sum_roaming_terminals_per_cell_day) as sum_sum_roaming_terminals_per_taz_day,
-    SUM(sum_phonecalls_per_cell_day) as sum_sum_phonecalls
+    SUM(sum_roaming_terminals_per_cell_day) as sum_sum_roaming_terminals_per_taz_day
     FROM (
         SELECT 
         location_id,
         taz_id,
         date_trunc('day', time) as one_time,
         SUM(n_terminals) as sum_terminals_per_cell_day,
-        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_day,
-        SUM(n_phonecalls) as sum_phonecalls_per_cell_day
+        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_day
         FROM MobilityData NATURAL JOIN SpatialLocation
         GROUP BY (location_id, taz_id, one_time)
     ) as total_per_cell_day
@@ -233,7 +214,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_daily_township_withgeom_view (
     one_time,
     sum_terminals,
     sum_roaming_terminals,
-    sum_phonecalls,
     wkt_township) AS
 SELECT 
     dicofre_code, 
@@ -241,23 +221,20 @@ SELECT
     one_time, 
     sum_sum_terminals_per_township_day, 
     sum_sum_roaming_terminals_per_township_day,
-    sum_sum_phonecalls,
     wkt
 FROM (
     SELECT 
         one_time,
         total_per_cell_day.dicofre_code,
         SUM(sum_terminals_per_cell_day) as sum_sum_terminals_per_township_day,
-        SUM(sum_roaming_terminals_per_cell_day) as sum_sum_roaming_terminals_per_township_day, 
-        SUM(sum_phonecalls_per_cell_day) as sum_sum_phonecalls
+        SUM(sum_roaming_terminals_per_cell_day) as sum_sum_roaming_terminals_per_township_day
     FROM (
         SELECT 
         location_id,
         dicofre_code,
         date_trunc('day', time) as one_time,
         SUM(n_terminals) as sum_terminals_per_cell_day,
-        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_day,
-        SUM(n_phonecalls) as sum_phonecalls_per_cell_day
+        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_day
         FROM MobilityData NATURAL JOIN SpatialLocation
         GROUP BY (location_id, dicofre_code, one_time)
     ) as total_per_cell_day
@@ -284,15 +261,13 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_weekly_cell_view (
     location_id,
     one_time,
     sum_terminals,
-    sum_roaming_terminals,
-    sum_phonecalls)
+    sum_roaming_terminals)
 WITH (timescaledb.continuous) AS 
     SELECT 
         location_id,
         time_bucket('1 week', time) as one_time,
         SUM(n_terminals) as sum_terminals,
-        SUM(n_roaming_terminals) as sum_roaming_terminals,
-        SUM(n_phonecalls) as sum_phonecalls
+        SUM(n_roaming_terminals) as sum_roaming_terminals
     FROM MobilityData
     GROUP BY (location_id, one_time);
 
@@ -303,7 +278,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_weekly_cell_withgeom_view (
     one_time, 
     sum_terminals, 
     sum_roaming_terminals,
-    sum_phonecalls, 
     wkt_cell) AS
     SELECT 
         location_id, 
@@ -311,7 +285,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_weekly_cell_withgeom_view (
         one_time,
         sum_terminals,
         sum_roaming_terminals,
-        sum_phonecalls,
         SpatialLocation.wkt
     FROM mob_data_aggregated_weekly_cell_view NATURAL JOIN SpatialLocation JOIN CivilTownShip ON (SpatialLocation.dicofre_code=CivilTownShip.dicofre_code)
     ORDER BY one_time DESC;
@@ -323,31 +296,27 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_weekly_taz_withgeom_view (
     one_time,
     sum_terminals,
     sum_roaming_terminals,
-    sum_phonecalls,
     wkt_taz) AS
 SELECT
     taz_id, 
     taz_name, 
     one_time, 
     sum_sum_terminals_per_taz_week, 
-    sum_sum_roaming_terminals_per_taz_week,
-    sum_sum_phonecalls,
+    sum_sum_roaming_terminals_per_taz_week
     wkt
 FROM (
     SELECT 
         one_time,
         total_per_cell_week.taz_id,
         SUM(sum_terminals_per_cell_week) as sum_sum_terminals_per_taz_week,
-        SUM(sum_roaming_terminals_per_cell_week) as sum_sum_roaming_terminals_per_taz_week,
-        SUM(sum_phonecalls_per_cell_week) as sum_sum_phonecalls
+        SUM(sum_roaming_terminals_per_cell_week) as sum_sum_roaming_terminals_per_taz_week
     FROM (
         SELECT 
         location_id,
         taz_id,
         date_trunc('week', time) as one_time,
         SUM(n_terminals) as sum_terminals_per_cell_week,
-        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_week,
-        SUM(n_phonecalls) as sum_phonecalls_per_cell_week
+        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_week
         FROM MobilityData NATURAL JOIN SpatialLocation
         GROUP BY (location_id, taz_id, one_time)
     ) as total_per_cell_week
@@ -375,7 +344,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_weekly_township_withgeom_view (
     one_time,
     sum_terminals,
     sum_roaming_terminals,
-    sum_phonecalls,
     wkt_township) AS
 SELECT
     dicofre_code, 
@@ -383,23 +351,20 @@ SELECT
     one_time, 
     sum_sum_terminals_per_township_week, 
     sum_sum_roaming_terminals_per_township_week,
-    sum_sum_phonecalls,
     wkt
 FROM (
     SELECT 
         one_time,
         total_per_cell_week.dicofre_code,
         SUM(sum_terminals_per_cell_week) as sum_sum_terminals_per_township_week,
-        SUM(sum_roaming_terminals_per_cell_week) as sum_sum_roaming_terminals_per_township_week,
-        SUM(sum_phonecalls_per_cell_week) as sum_sum_phonecalls
+        SUM(sum_roaming_terminals_per_cell_week) as sum_sum_roaming_terminals_per_township_week
     FROM (
         SELECT 
         location_id,
         dicofre_code,
         date_trunc('week', time) as one_time,
         SUM(n_terminals) as sum_terminals_per_cell_week,
-        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_week,
-        SUM(n_phonecalls) as sum_phonecalls_per_cell_week
+        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_week
         FROM MobilityData NATURAL JOIN SpatialLocation
         GROUP BY (location_id, dicofre_code, one_time)
     ) as total_per_cell_week
@@ -427,14 +392,12 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_monthly_cell_view (
     location_id,
     one_time,
     sum_terminals,
-    sum_roaming_terminals,
-    sum_phonecalls) AS
+    sum_roaming_terminals) AS
     SELECT 
     location_id,
     date_trunc('month', time) as one_time,
     SUM(n_terminals) as sum_terminals,
-    SUM(n_roaming_terminals) as sum_roaming_terminals,
-    SUM(n_phonecalls) as sum_phonecalls
+    SUM(n_roaming_terminals) as sum_roaming_terminals
     FROM MobilityData
     GROUP BY (location_id, one_time);
 
@@ -445,7 +408,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_monthly_cell_withgeom_view (
     one_time, 
     sum_terminals, 
     sum_roaming_terminals,
-    sum_phonecalls,
     wkt_cell) AS
     SELECT 
         location_id, 
@@ -453,7 +415,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_monthly_cell_withgeom_view (
         one_time,
         sum_terminals,
         sum_roaming_terminals,
-        sum_phonecalls,
         SpatialLocation.wkt
     FROM mob_data_aggregated_monthly_cell_view NATURAL JOIN SpatialLocation JOIN CivilTownShip ON (SpatialLocation.dicofre_code=CivilTownShip.dicofre_code)
     ORDER BY one_time DESC;
@@ -467,7 +428,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_monthly_taz_withgeom_view (
     one_time,
     sum_terminals,
     sum_roaming_terminals,
-    sum_phonecalls,
     wkt_taz) AS
 SELECT
     taz_id, 
@@ -475,15 +435,13 @@ SELECT
     one_time, 
     sum_sum_terminals_per_taz_month, 
     sum_sum_roaming_terminals_per_taz_month,
-    sum_sum_phonecalls,
     wkt
 FROM (
     SELECT
         one_time,
         total_per_cell_month.taz_id,
         SUM(sum_terminals_per_cell_month) as sum_sum_terminals_per_taz_month,
-        SUM(sum_roaming_terminals_per_cell_month) as sum_sum_roaming_terminals_per_taz_month,
-        SUM(sum_phonecalls_per_cell_month) as sum_sum_phonecalls
+        SUM(sum_roaming_terminals_per_cell_month) as sum_sum_roaming_terminals_per_taz_month
     FROM (
         SELECT 
         location_id,
@@ -491,7 +449,6 @@ FROM (
         date_trunc('month', time) as one_time,
         SUM(n_terminals) as sum_terminals_per_cell_month,
         SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_month,
-        SUM(n_phonecalls) as sum_phonecalls_per_cell_month
         FROM MobilityData NATURAL JOIN SpatialLocation
         GROUP BY (location_id, taz_id, one_time)
     ) as total_per_cell_month
@@ -518,7 +475,6 @@ CREATE MATERIALIZED VIEW mob_data_aggregated_monthly_township_withgeom_view (
     one_time,
     sum_terminals,
     sum_roaming_terminals,
-    sum_phonecalls,
     wkt_township) AS
 SELECT
     dicofre_code, 
@@ -526,15 +482,13 @@ SELECT
     one_time, 
     sum_sum_terminals_per_township_month, 
     sum_sum_roaming_terminals_per_township_month,
-    sum_sum_phonecalls,
     wkt
 FROM (
     SELECT
         one_time,
         total_per_cell_month.dicofre_code,
         SUM(sum_terminals_per_cell_month) as sum_sum_terminals_per_township_month,
-        SUM(sum_roaming_terminals_per_cell_month) as sum_sum_roaming_terminals_per_township_month,
-        SUM(sum_phonecalls_per_cell_month) as sum_sum_phonecalls
+        SUM(sum_roaming_terminals_per_cell_month) as sum_sum_roaming_terminals_per_township_month
     FROM (
         SELECT
         location_id,
