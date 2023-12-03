@@ -302,7 +302,7 @@ SELECT
     taz_name, 
     one_time, 
     sum_sum_terminals_per_taz_week, 
-    sum_sum_roaming_terminals_per_taz_week
+    sum_sum_roaming_terminals_per_taz_week,
     wkt
 FROM (
     SELECT 
@@ -448,7 +448,7 @@ FROM (
         taz_id,
         date_trunc('month', time) as one_time,
         SUM(n_terminals) as sum_terminals_per_cell_month,
-        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_month,
+        SUM(n_roaming_terminals) as sum_roaming_terminals_per_cell_month
         FROM MobilityData NATURAL JOIN SpatialLocation
         GROUP BY (location_id, taz_id, one_time)
     ) as total_per_cell_month

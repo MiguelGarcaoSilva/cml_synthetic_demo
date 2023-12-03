@@ -792,6 +792,10 @@ def subsequence_complexity_zerocrossings(x):
     x = (x - np.mean(x)) / np.std(x)
     return np.sum(np.diff(np.sign(x)) != 0)
 
+def multivar_subsequence_complexity(x):
+    # complexity for multivariate time series can be calculated as the sum of the complexity of each dimension
+    return np.sum(np.sqrt(np.sum(np.square(np.diff(x)), axis=1)))
+
 
 def make_av_simplicitybias(data, m):
     av = np.zeros(len(data) - m + 1)
