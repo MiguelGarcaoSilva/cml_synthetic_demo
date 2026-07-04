@@ -289,11 +289,11 @@ layout = dbc.Container([
    html.Div([
         dcc.Dropdown(
             options={
-                'F_T': 'F_T',
+                'F_T': 'F_Trend',
                 'ROC':'ROC',
-                'Unified Score':'Unified Score',
-                'F_S': 'F_S',
-                'F_R': 'F_R'
+                'Unified Score':'Score_Unified',
+                'F_S': 'F_Seasonal',
+                'F_R': 'F_Residuals'
             },
             value='F_R',
             id='statistics-dropdown', persistence=True, persistence_type="session"
@@ -858,17 +858,18 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, decomp_algo, decom
             combined_decomp_stats_table = pd.concat([combined_decomp_stats_table, decomp_stats_table], ignore_index=True)
         
 
-        axes_stl[0, 0].set_ylabel("Observed")
-        axes_stl[1, 0].set_ylabel("Trend")
+        # Canonical decomposition-component labels (thesis Eq. X = T + S + R).
+        axes_stl[0, 0].set_ylabel("Observed ($X$)")
+        axes_stl[1, 0].set_ylabel("Trend ($T$)")
         ax_idx = 2
         if decomp_algo == "mstl":
             for period in sorted(decomp_period):
-                axes_stl[ax_idx, 0].set_ylabel("Seas_"+str(period))
+                axes_stl[ax_idx, 0].set_ylabel("Seasonal $S_{"+str(period)+"}$")
                 ax_idx += 1
         else:
-            axes_stl[ax_idx, 0].set_ylabel("Seasonal")
+            axes_stl[ax_idx, 0].set_ylabel("Seasonal ($S$)")
             ax_idx += 1
-        axes_stl[ax_idx, 0].set_ylabel("Residual")
+        axes_stl[ax_idx, 0].set_ylabel("Residual ($R$)")
 
         fig_stl.tight_layout()
         html_matplotlib_stl = mpld3.fig_to_html(fig_stl)
