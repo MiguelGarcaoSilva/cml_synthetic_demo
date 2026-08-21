@@ -12,9 +12,11 @@ This is the open-access tool accompanying the article:
 - **Decompose the series and rank regions by actionable statistics** — classic additive, STL, or MSTL seasonal-trend decomposition per region, summarized in a sortable table of trend strength ($F_T$), seasonal strength ($F_S$), residual strength ($F_R$), rate of change, and a unified score, rendered back onto the map.
 - **Find motifs in the residuals** — matrix-profile motif discovery ([stumpy](https://github.com/TDAmeritrade/stumpy)) over the decomposition residuals, univariate or multidimensional, with optional complexity correction and actionability bias (e.g., restrict to weekends or mornings), following the residual-motif analysis of the companion articles.
 
-| Map exploration | Decomposition statistics | Motifs in residuals |
-| --- | --- | --- |
-| ![Population-density map](docs/screenshots/home_map.png) | ![Decomposition table and statistics map](docs/screenshots/home_decomp.png) | ![Motif discovery](docs/screenshots/decomp_viz.png) |
+| Map exploration | Decomposition statistics |
+| --- | --- |
+| ![Population-density map](docs/screenshots/home_map.png) | ![Decomposition table and statistics map](docs/screenshots/home_decomp.png) |
+| **Decomposition components** | **Motifs in residuals** |
+| ![Observed, trend, seasonal and residual components per region](docs/screenshots/decomp_components.png) | ![Motif discovery](docs/screenshots/decomp_viz.png) |
 
 ## Quick start
 

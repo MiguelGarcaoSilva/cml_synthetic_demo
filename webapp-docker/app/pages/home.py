@@ -5,12 +5,10 @@ import dash_leaflet as dl
 import dash_leaflet.express as dlx
 from dash_extensions.javascript import arrow_function, assign
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from statsmodels.tsa.seasonal import seasonal_decompose, STL, MSTL
 from sklearn.linear_model import LinearRegression
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.pylab as pylab
 
 import re
 import json
@@ -18,19 +16,10 @@ import pandas as pd
 import geopandas as gpd
 import numpy as np
 import math
-import mpld3
 import concurrent.futures
 
 from common import get_current_dataset, space_feature, space_wkt
 
-
-pylab.rcParams.update({
-    'axes.labelsize': 11,
-    'axes.titlesize': 11,
-    'xtick.labelsize': 8,
-    'ytick.labelsize': 8,
-    'legend.fontsize': 8,
-})
 
 register_page(__name__, path='/home')
 
@@ -247,6 +236,12 @@ layout = dbc.Container([
                                                             page_current=0,
                                                             page_size=10,
                                                             style_table={"overflowX": "auto"},
+                                                            style_cell={"fontFamily": "inherit", "fontSize": "0.85rem",
+                                                                        "padding": "4px 8px", "whiteSpace": "nowrap"},
+                                                            style_header={"whiteSpace": "normal", "height": "auto",
+                                                                          "fontWeight": "600"},
+                                                            style_cell_conditional=[{"if": {"column_id": "Name"},
+                                                                                     "textAlign": "left"}],
                                                             persistence=True, persistence_type="session", persisted_props=["columns.name", "data"]),
                                        id="ts-decomp-table_div", style={'textAlign': 'center', "margin": "auto", "margin-top": "30px"}))]),
 
@@ -584,7 +579,7 @@ def process_batch(batch_idx, batch_size, group_names, table_df, space_feature_na
 
     decomp_resids = {}
     decomp_stats_table = pd.DataFrame()
-    # matplotlib is not thread-safe, so plotting is deferred to the main thread
+    # figure building is deferred to the main thread, after all batches finish
     plot_jobs = []
 
     for i, group_name in enumerate(batch_group_names):
@@ -705,7 +700,7 @@ def process_batch(batch_idx, batch_size, group_names, table_df, space_feature_na
     prevent_initial_call=True,
     background=True)
 def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, decomp_algo, decomp_periods, stored_decomp_resid,
-                                 stored_table, stored_html_matplotlib_stl, time_agg, space_agg,
+                                 stored_table, stored_decomp_figure, time_agg, space_agg,
                                  data_features, stored_daterange, checklist_values_memory):
     if url != '/home' or checklist_values_memory == {}:
         raise exceptions.PreventUpdate
@@ -715,7 +710,7 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, decomp_algo, decom
     checklist_values = checklist_values_memory[0]
 
     if trigger_id == "url-home" and stored_table:
-        return stored_html_matplotlib_stl, stored_decomp_resid, stored_table[0], stored_table[1], stored_table, data_features
+        return stored_decomp_figure, stored_decomp_resid, stored_table[0], stored_table[1], stored_table, data_features
 
     space_feature_name = space_feature(space_agg)
 
@@ -744,9 +739,6 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, decomp_algo, decom
         decomp_period = int(decomp_periods)
         nrows = 4
     if checklist_values:
-        fig_stl, axes_stl = plt.subplots(ncols=len(checklist_values), nrows=nrows, figsize=(
-            len(checklist_values) * 4, 8), squeeze=False)
-
         decomp_stats_table = pd.DataFrame(
             columns=["Name", "Feature", "Slope", "R2", "ROC", "F_T", "Unified Score", "F_S", "F_R"])
         decomp_resids = {}
@@ -785,31 +777,15 @@ def perform_tscomp_ifnotin_cache(set_progress, url, n_clicks, decomp_algo, decom
         for decomp_stats_table in all_decomp_stats_tables:
             combined_decomp_stats_table = pd.concat([combined_decomp_stats_table, decomp_stats_table], ignore_index=True)
 
-        for col_idx, res, data_feature, y_pred, formula, group_name in all_plot_jobs:
-            plotseasonal(axes_stl[:, col_idx], res, data_feature, y_pred, formula, group_name)
-
-        axes_stl[0, 0].set_ylabel("Observed")
-        axes_stl[1, 0].set_ylabel("Trend")
-        ax_idx = 2
-        if decomp_algo == "mstl":
-            for period in sorted(decomp_period):
-                axes_stl[ax_idx, 0].set_ylabel("Seas_"+str(period))
-                ax_idx += 1
-        else:
-            axes_stl[ax_idx, 0].set_ylabel("Seasonal")
-            ax_idx += 1
-        axes_stl[ax_idx, 0].set_ylabel("Residual")
-
-        fig_stl.autofmt_xdate(rotation=30)
-        fig_stl.tight_layout()
-        html_matplotlib_stl = mpld3.fig_to_html(fig_stl)
+        decomp_figure = build_decomposition_figure(
+            all_plot_jobs, nrows, decomp_algo, decomp_period)
 
         table = combined_decomp_stats_table.to_dict(orient='records')
         table_columns = [{'name': col, 'id': col}
                          for col in combined_decomp_stats_table.columns]
         stored_table = [table, table_columns]
         set_progress((0, str(len(checklist_values))))
-        return html_matplotlib_stl, combined_decomp_resids, table, table_columns, stored_table, data_features
+        return decomp_figure, combined_decomp_resids, table, table_columns, stored_table, data_features
 
     # empty list
     set_progress((0, str(len(checklist_values))))
@@ -833,31 +809,88 @@ def download_decomp_results(n_clicks, table_data, table_columns):
 
     return dict(content=csv_string, filename=filename)
     
-def plotseasonal(axes, res, data_feature, predicted, formula, ts_name):    
-    axes[0].plot(res.observed.index, res.observed.values, label=None)
-    axes[0].set_xlabel("")
-    axes[0].set_title(ts_name)
-    #axes[0].legend(loc='upper right')
-    
-    axes[1].plot(res.trend.index, res.trend.values, label="")
-    axes[1].plot(predicted.index, predicted.values, label=formula, color="r")
-    axes[1].set_xlabel("") 
-    axes[1].legend(loc='upper right')
-
-    ax_idx = 2
-    if isinstance(res.seasonal, pd.DataFrame):
-        ax_idx = 2
-        for i, period in enumerate(res.seasonal):
-            axes[ax_idx].plot(res.seasonal.index, res.seasonal[period], label=period)
-            axes[2+i].set_xlabel("")
-            ax_idx += 1
+def component_row_labels(nrows, decomp_algo, decomp_period):
+    """Row labels of the decomposition grid, top to bottom."""
+    labels = ["Observed", "Trend"]
+    if decomp_algo == "mstl":
+        labels += ["Seas_" + str(period) for period in sorted(decomp_period)]
     else:
-        axes[ax_idx].plot(res.seasonal.index, res.seasonal.values)
-        axes[ax_idx].set_xlabel("")
+        labels.append("Seasonal")
+    labels.append("Residual")
+    return labels[:nrows]
 
-    axes[-1].plot(res.resid.index, res.resid.values, marker='.', label=None)
-    axes[-1].set_xlabel("")
-    return None
+
+def build_decomposition_figure(plot_jobs, nrows, decomp_algo, decomp_period):
+    """One column per region, one row per decomposition component."""
+    jobs = sorted(plot_jobs, key=lambda job: job[0])
+    ncols = len(jobs)
+    if not ncols:
+        return {}
+
+    row_labels = component_row_labels(nrows, decomp_algo, decomp_period)
+    series_color = "#2c6fbb"
+    fig = make_subplots(
+        rows=nrows, cols=ncols,
+        shared_xaxes=True,
+        subplot_titles=[job[5] for job in jobs],
+        horizontal_spacing=0.04 if ncols > 1 else 0.02,
+        vertical_spacing=0.03,
+    )
+
+    for col, (_, res, data_feature, y_pred, formula, group_name) in enumerate(jobs, start=1):
+        fig.add_trace(go.Scatter(x=res.observed.index, y=res.observed.values,
+                                 mode="lines", line=dict(width=1, color=series_color),
+                                 name="Observed", showlegend=False), row=1, col=col)
+
+        fig.add_trace(go.Scatter(x=res.trend.index, y=res.trend.values,
+                                 mode="lines", line=dict(width=1, color=series_color),
+                                 name="Trend", showlegend=False), row=2, col=col)
+        fig.add_trace(go.Scatter(x=y_pred.index, y=y_pred.values,
+                                 mode="lines", line=dict(width=2, color="#e74c3c"),
+                                 name=formula, hovertemplate=formula + "<extra></extra>",
+                                 showlegend=False), row=2, col=col)
+        # the fitted-trend equation, shown in the corner of the trend panel
+        fig.add_annotation(row=2, col=col, text=formula, showarrow=False,
+                           xref="x domain", yref="y domain", x=0.98, y=0.97,
+                           xanchor="right", yanchor="top",
+                           font=dict(size=10, color="#e74c3c"))
+
+        row = 3
+        if isinstance(res.seasonal, pd.DataFrame):
+            for period in res.seasonal:
+                fig.add_trace(go.Scatter(x=res.seasonal.index, y=res.seasonal[period],
+                                         mode="lines", line=dict(width=1, color=series_color),
+                                         name=str(period), showlegend=False), row=row, col=col)
+                row += 1
+        else:
+            fig.add_trace(go.Scatter(x=res.seasonal.index, y=res.seasonal.values,
+                                     mode="lines", line=dict(width=1, color=series_color),
+                                     name="Seasonal", showlegend=False), row=row, col=col)
+            row += 1
+
+        fig.add_trace(go.Scatter(x=res.resid.index, y=res.resid.values,
+                                 mode="lines", line=dict(width=1, color=series_color),
+                                 name="Residual", showlegend=False), row=row, col=col)
+
+    for row, label in enumerate(row_labels, start=1):
+        fig.update_yaxes(title_text=label, row=row, col=1,
+                         title_font=dict(size=11))
+    fig.update_yaxes(nticks=5, tickfont=dict(size=9))
+    # plotly picks readable date ticks by itself; keep them sparse and horizontal
+    fig.update_xaxes(nticks=4, tickfont=dict(size=9), tickangle=0)
+    fig.update_annotations(font_size=11)
+    fig.update_layout(
+        height=max(420, 150 * nrows),
+        margin=dict(l=70, r=20, t=40, b=40),
+        hovermode="x unified",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font=dict(family="IBM Plex Sans, sans-serif"),
+    )
+    fig.update_xaxes(showgrid=True, gridcolor="#eeeeea", zeroline=False)
+    fig.update_yaxes(showgrid=True, gridcolor="#eeeeea", zeroline=False)
+
+    return fig.to_plotly_json()
 
 
 @callback(
