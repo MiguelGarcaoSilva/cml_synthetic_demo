@@ -1,5 +1,9 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite the article below."
+message: >-
+  If you use this software, please cite the article matching the part of the tool
+  you used: the preferred citation below for the spatiotemporal decomposition and
+  actionable statistics, or the Pattern Recognition article under references for
+  the residual-motif analysis.
 title: "cml_synthetic_demo: a web application to discover actionable spatiotemporal descriptors of urban dynamics from mobile-phone data"
 authors:
   - family-names: "Silva"
@@ -23,3 +27,19 @@ preferred-citation:
   start: 1725
   end: 1741
   doi: "10.1177/23998083231219048"
+references:
+  - type: article
+    title: "Cutting through the noise: Explaining residuals in multivariate time series with motif analysis"
+    authors:
+      - family-names: "Silva"
+        given-names: "Miguel G."
+      - family-names: "Madeira"
+        given-names: "Sara C."
+      - family-names: "Henriques"
+        given-names: "Rui"
+    journal: "Pattern Recognition"
+    year: 2026
+    volume: 169
+    start: 111900
+    doi: "10.1016/j.patcog.2025.111900"
+    notes: "Methodology implemented by the residual-motif analysis in this tool."
