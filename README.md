@@ -2,15 +2,17 @@
 
 An interactive web application to discover **actionable spatiotemporal descriptors of urban dynamics** from mobile-phone network data, demonstrated on a synthetic dataset for Lisbon, Portugal.
 
-This is the open-access tool accompanying the article:
+This is the open-access tool accompanying two articles, one for each half of the workflow it implements:
 
-> Silva, M. G., Madeira, S. C., and Henriques, R. (2024). **Actionable descriptors of spatiotemporal urban dynamics from large-scale mobile data: A case study in Lisbon city.** *Environment and Planning B: Urban Analytics and City Science*, 51(8):1725–1741. [doi:10.1177/23998083231219048](https://doi.org/10.1177/23998083231219048)
+> **[1]** Silva, M. G., Madeira, S. C., and Henriques, R. (2024). **Actionable descriptors of spatiotemporal urban dynamics from large-scale mobile data: A case study in Lisbon city.** *Environment and Planning B: Urban Analytics and City Science*, 51(8):1725–1741. [doi:10.1177/23998083231219048](https://doi.org/10.1177/23998083231219048)
+>
+> **[2]** Silva, M. G., Madeira, S. C., and Henriques, R. (2026). **Cutting through the noise: Explaining residuals in multivariate time series with motif analysis.** *Pattern Recognition*, 169:111900. [doi:10.1016/j.patcog.2025.111900](https://doi.org/10.1016/j.patcog.2025.111900)
 
 ## What it does
 
-- **Explore population density in space and time** — an interactive choropleth map of the number of mobile terminals over Lisbon, at a user-selected spatial resolution (grid cell, traffic-analysis zone, or township) and temporal resolution (hourly, daily, weekly, or monthly), with a time-range slider and per-region time-series plots.
-- **Decompose the series and rank regions by actionable statistics** — classic additive, STL, or MSTL seasonal-trend decomposition per region, summarized in a sortable table of trend strength ($F_T$), seasonal strength ($F_S$), residual strength ($F_R$), rate of change, and a unified score, rendered back onto the map.
-- **Find motifs in the residuals** — matrix-profile motif discovery ([stumpy](https://github.com/TDAmeritrade/stumpy)) over the decomposition residuals, univariate or multidimensional, with optional complexity correction and actionability bias (e.g., restrict to weekends or mornings), following the residual-motif analysis of the companion articles.
+- **Explore population density in space and time** — an interactive choropleth map of the number of mobile terminals over Lisbon, at a user-selected spatial resolution (grid cell, traffic-analysis zone, or township) and temporal resolution (hourly, daily, weekly, or monthly), with a time-range slider and per-region time-series plots. *(Article [1])*
+- **Decompose the series and rank regions by actionable statistics** — classic additive, STL, or MSTL seasonal-trend decomposition per region, summarized in a sortable table of trend strength ($F_T$), seasonal strength ($F_S$), residual strength ($F_R$), rate of change, and a unified score, rendered back onto the map. *(Article [1])*
+- **Find motifs in the residuals** — matrix-profile motif discovery ([stumpy](https://github.com/TDAmeritrade/stumpy)) over the decomposition residuals, univariate or multidimensional, with optional complexity correction and actionability bias (e.g., restrict to weekends or mornings), ranked by a unified score. This implements the residual-motif methodology of article [2]; the analyses reproducing that article's research questions live in the companion repository [motifsinresidual](https://github.com/MiguelGarcaoSilva/motifsinresidual). *(Article [2])*
 
 | Map exploration | Decomposition statistics |
 | --- | --- |
@@ -53,13 +55,14 @@ Three Docker services, orchestrated by `webapp-docker/docker-compose.yml`:
 ## Troubleshooting
 
 - **Nothing on localhost:8050** — the dashboard only starts after `populate_db` finishes (a few minutes on first run). Follow progress with `docker compose logs -f populate_db`.
-- **`populate_db` exits immediately** — the dataset is missing; the log explains where to put it (step 2 above).
+- **`populate_db` exits immediately** — the dataset is missing and the automatic download failed; the log explains where to put it manually.
+- **"No motifs were found"** — the one-month daily series are too short for motif discovery. Use Hourly with a seasonal period of 24 and a subsequence length of 24 (see the suggested analysis above).
 - **Slow or unresponsive at fine resolutions** — hourly data at cell level is the heaviest combination (3,743 series); prefer TAZ/township or daily aggregation on modest hardware, and give Docker at least 4 GB of memory.
 - **Start over from a clean database** — `docker compose down -v`, then `docker compose up --build`.
 - **Inspecting the database** — the DB port is not published to the host; use `docker exec -it db psql -U postgres`.
 
 ## License and citation
 
-Code is released under the [MIT License](LICENSE). If you use this software in your research, please cite the article above (see [CITATION.cff](CITATION.cff)).
+Code is released under the [MIT License](LICENSE). If you use this software in your research, please cite the article matching the part of the tool you used — [1] for the spatiotemporal decomposition and actionable statistics, [2] for the residual-motif analysis (see [CITATION.cff](CITATION.cff)).
 
 Contact: mmgsilva@fc.ul.pt
