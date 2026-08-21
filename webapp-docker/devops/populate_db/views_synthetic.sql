@@ -1,19 +1,19 @@
-DROP MATERIALIZED VIEW mob_data_aggregated_hourly_cell_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_hourly_cell_withgeom_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_hourly_taz_withgeom_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_hourly_township_withgeom_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_daily_cell_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_daily_cell_withgeom_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_daily_taz_withgeom_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_daily_township_withgeom_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_weekly_cell_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_weekly_cell_withgeom_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_weekly_taz_withgeom_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_weekly_township_withgeom_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_monthly_cell_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_monthly_cell_withgeom_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_monthly_taz_withgeom_view CASCADE;
-DROP MATERIALIZED VIEW mob_data_aggregated_monthly_township_withgeom_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_hourly_cell_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_hourly_cell_withgeom_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_hourly_taz_withgeom_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_hourly_township_withgeom_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_daily_cell_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_daily_cell_withgeom_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_daily_taz_withgeom_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_daily_township_withgeom_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_weekly_cell_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_weekly_cell_withgeom_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_weekly_taz_withgeom_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_weekly_township_withgeom_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_monthly_cell_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_monthly_cell_withgeom_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_monthly_taz_withgeom_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mob_data_aggregated_monthly_township_withgeom_view CASCADE;
 
 
 ----HOURLY

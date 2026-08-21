@@ -1,21 +1,21 @@
-import logging
 import dash
-from dash import Dash, callback, register_page, dcc, html, Input, State, Output, exceptions, callback_context, dash_table
-import matplotlib.dates as mdates
-from matplotlib.patches import Rectangle
-from datetime import timedelta
-from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from dash import callback, dcc, html, Input, State, Output, exceptions, callback_context, dash_table
 
 import dash_bootstrap_components as dbc
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import diskcache as dc
+
+plt.rcParams.update({
+    'axes.labelsize': 11,
+    'axes.titlesize': 11,
+    'xtick.labelsize': 8,
+    'ytick.labelsize': 8,
+    'legend.fontsize': 8,
+})
 
 import numpy as np
 import pandas as pd
-import geopandas as gpd
-import os
-import time
 import re
 
 import stumpy
@@ -25,27 +25,18 @@ import mpld3
 dash.register_page(__name__)
 
 
-# SGBD configs
-DB_HOST = os.getenv('PG_HOST')
-DB_PORT= os.getenv('PG_PORT')
-DB_USER = os.getenv('PG_USER')
-DB_DATABASE = os.getenv('PG_DBNAME')
-DB_PASSWORD = os.getenv('PG_PASSWORD')
-
-
-engine_string = "postgresql+psycopg2://%s:%s@%s:%s/%s" % (
-    DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_DATABASE)
-engine = create_engine(engine_string)
-
-
 layout = dbc.Container([
-    dcc.Link('Go back', href='/home'),
+    html.Div(dcc.Link('← Back to map and decomposition', href='/home'),
+             style={"margin-bottom": "10px"}),
     dcc.Location(id='url-decompviz', refresh=False),
-    dbc.Row(dbc.Col(html.H4("Seasonal Decomposition"), width={'size': 12, 'offset': 0, 'order': 0}), style={
-        'textAlign': 'center', 'paddingBottom': '1%'}),
-    dbc.Row(dbc.Col(html.Iframe(id="ts-decomp-stl-plots-iframe", srcDoc="<h3>Loading...</h3>",
-            style={"border-width": "5", "width": "100%", "height": "1000px",'paddingBottom': '2%'}), id="ts-decomp-stl-plots")),
+    html.Div([
+        html.Div("Decomposition components", className="section-label"),
+        dbc.Row(dbc.Col(html.Iframe(id="ts-decomp-stl-plots-iframe", srcDoc="<h3>Loading...</h3>",
+                style={"width": "100%", "height": "1000px", 'paddingBottom': '2%'}), id="ts-decomp-stl-plots")),
+    ], className="app-card"),
 
+    html.Div([
+    html.Div("Find motifs in the residual component", className="section-label"),
     dbc.Row(
         dbc.Col(
             [
@@ -57,7 +48,7 @@ layout = dbc.Container([
                                 dcc.Input(
                                     id='max-motifs-input',
                                     type='number',
-                                    value=[],
+                                    value=5,
                                     placeholder = "e.g., '5'",
                                     style={'width': '100%'},
                                     persistence=True, persistence_type="session"
@@ -73,7 +64,7 @@ layout = dbc.Container([
                                 dcc.Input(
                                     id='motifsizes-input',
                                     type='text',
-                                    value=[],
+                                    value='7',
                                     placeholder = "e.g., '3,5'",
                                     style={'width': '100%'},
                                     persistence=True, persistence_type="session"
@@ -89,7 +80,7 @@ layout = dbc.Container([
                                 dcc.Input(
                                     id='min-matches-input',
                                     type='number',
-                                    value=[],
+                                    value=3,
                                     placeholder = "e.g., '3'",
                                     style={'width': '100%'},
                                     persistence=True, persistence_type="session"
@@ -104,7 +95,7 @@ layout = dbc.Container([
                                 dcc.Input(
                                     id='max-matches-input',
                                     type='number',
-                                    value=[],
+                                    value=10,
                                     placeholder = "e.g., '10'",
                                     style={'width': '100%'},
                                     persistence=True, persistence_type="session"
@@ -192,7 +183,7 @@ layout = dbc.Container([
                                 dcc.Input(
                                     id='top-k-mp-input',
                                     type='number',
-                                    value=[],
+                                    value=1,
                                     placeholder = "e.g., '1'",
                                     style={'width': '100%'},
                                     persistence=True, persistence_type="session"
@@ -207,7 +198,7 @@ layout = dbc.Container([
                             dcc.Input(
                                 id='weights-input',
                                 type='text',
-                                value=[],
+                                value='0.33,0.33,0.33',
                                 placeholder = "e.g., '0.33,0.33,0.33'",
                                 style={'width': '100%'},
                                 persistence=True, persistence_type="session"
@@ -233,21 +224,25 @@ layout = dbc.Container([
                     ),
                     ]),
 
-                dbc.Button(
-                    "Find Motifs in Residuals", 
-                    id="matrixprofile_button", 
-                    className="mr-2",
-                    color="primary"
-                ),
-                dbc.Button(
-                    "Cancel", 
-                    id="cancel_matrixprofile_button", 
-                    className="mr-2",
-                    color="danger"
-                ),
+                html.Div([
+                    dbc.Button(
+                        "Find Motifs in Residuals",
+                        id="matrixprofile_button",
+                        className="mr-2",
+                        color="primary"
+                    ),
+                    dbc.Button(
+                        "Cancel",
+                        id="cancel_matrixprofile_button",
+                        className="mr-2",
+                        color="danger",
+                        style={"margin-left": "15px"}
+                    ),
+                ], style={"margin-top": "10px"}),
                 dbc.Progress(
                     id="matrixprofile-progress_bar",
-                    value=0
+                    value=0,
+                    style={"visibility": "hidden", "margin-top": "15px"}
                 ),
             ], 
             width={'size': 12, 'offset': 0, 'order': 0}
@@ -275,14 +270,13 @@ layout = dbc.Container([
         ]),
 
     dbc.Row(dbc.Col(html.Iframe(id="ts-decomp-resid_matrixprofile-motif-plot-iframe", srcDoc="<h3>Loading...</h3>",
-           style={"border-width": "5", "width": "100%", "height": "400px",'paddingBottom': '2%'}), id="ts-decomp-resid_matrixprofile-plots")),
-    
+           style={"width": "100%", "height": "400px", 'paddingBottom': '2%'}), id="ts-decomp-resid_matrixprofile-plots")),
+    ], className="app-card"),
+
     # solves race condition of callback running faster then the rendering of the page layout
     dcc.Interval(id='interval-component', interval=1*1000, max_intervals=1)
 ])
 
-
-cache = dc.Cache("/path/to/cache_directory")
 
 @callback(
     Output('av-options-dropdown', 'options'),
@@ -387,6 +381,10 @@ def perform_matrixprofile_ifnotin_cache(set_progress, n_clicks, max_motifs, subs
 
 
     if trigger_id == "matrixprofile_button" and (n_clicks is None) and not stored_table_mp:
+        raise exceptions.PreventUpdate
+
+    # no data feature selected yet
+    if not data_features:
         raise exceptions.PreventUpdate
 
     subsequence_lengths = [int(s.strip()) for s in subsequence_lengths.split(',')]
@@ -526,6 +524,7 @@ def render_plots_motifs(selected_rows, table_data, table_columns, stored_decomp_
     axes[0,1].set_title("Raw Subsequences")
     axes[0,2].set_title("Motif in Residual TS")
 
+    fig.autofmt_xdate(rotation=30)
     fig.tight_layout()
     return mpld3.fig_to_html(fig)
 
