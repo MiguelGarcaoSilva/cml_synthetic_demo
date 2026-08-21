@@ -9,7 +9,7 @@ This is the open-access tool accompanying the article:
 ## What it does
 
 - **Explore population density in space and time** — an interactive choropleth map of the number of mobile terminals over Lisbon, at a user-selected spatial resolution (grid cell, traffic-analysis zone, or township) and temporal resolution (hourly, daily, weekly, or monthly), with a time-range slider and per-region time-series plots.
-- **Decompose the series and rank regions by actionable statistics** — classic additive, STL, or MSTL seasonal-trend decomposition per region, summarized in a sortable table of trend strength (F_T), seasonal strength (F_S), residual strength (F_R), rate of change, and a unified score, rendered back onto the map.
+- **Decompose the series and rank regions by actionable statistics** — classic additive, STL, or MSTL seasonal-trend decomposition per region, summarized in a sortable table of trend strength ($F_T$), seasonal strength ($F_S$), residual strength ($F_R$), rate of change, and a unified score, rendered back onto the map.
 - **Find motifs in the residuals** — matrix-profile motif discovery ([stumpy](https://github.com/TDAmeritrade/stumpy)) over the decomposition residuals, univariate or multidimensional, with optional complexity correction and actionability bias (e.g., restrict to weekends or mornings), following the residual-motif analysis of the companion articles.
 
 | Map exploration | Decomposition statistics | Motifs in residuals |
