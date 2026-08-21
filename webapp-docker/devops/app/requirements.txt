@@ -8,8 +8,6 @@ gunicorn==21.2.0
 geopandas==1.0.1
 Shapely==2.0.4
 pyogrio==0.8.0
-matplotlib==3.7.1
-mpld3==0.5.10
 numba==0.58.1
 numpy==1.24.4
 pandas==1.5.3

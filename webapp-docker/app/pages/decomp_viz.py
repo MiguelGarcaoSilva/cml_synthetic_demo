@@ -2,24 +2,15 @@ import dash
 from dash import callback, dcc, html, Input, State, Output, exceptions, callback_context, dash_table
 
 import dash_bootstrap_components as dbc
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
-plt.rcParams.update({
-    'axes.labelsize': 11,
-    'axes.titlesize': 11,
-    'xtick.labelsize': 8,
-    'ytick.labelsize': 8,
-    'legend.fontsize': 8,
-})
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 import numpy as np
 import pandas as pd
 import re
 
 import stumpy
-import mpld3
 
 
 dash.register_page(__name__)
@@ -31,8 +22,9 @@ layout = dbc.Container([
     dcc.Location(id='url-decompviz', refresh=False),
     html.Div([
         html.Div("Decomposition components", className="section-label"),
-        dbc.Row(dbc.Col(html.Iframe(id="ts-decomp-stl-plots-iframe", srcDoc="<h3>Loading...</h3>",
-                style={"width": "100%", "height": "1000px", 'paddingBottom': '2%'}), id="ts-decomp-stl-plots")),
+        dbc.Row(dbc.Col(dcc.Graph(id="ts-decomp-stl-plots-graph",
+                                  figure={}, config={"displaylogo": False}),
+                        id="ts-decomp-stl-plots")),
     ], className="app-card"),
 
     html.Div([
@@ -263,6 +255,31 @@ layout = dbc.Container([
                                                             page_current=0,
                                                             page_size=10,
                                                             style_table={"overflowX": "auto"},
+                                                            style_cell={"fontFamily": "inherit", "fontSize": "0.85rem",
+                                                                        "padding": "4px 8px", "whiteSpace": "nowrap",
+                                                                        "overflow": "hidden", "textOverflow": "ellipsis"},
+                                                            # wrap headers instead of shortening them, so the
+                                                            # full metric names survive into the CSV download
+                                                            style_header={"whiteSpace": "normal", "height": "auto",
+                                                                          "fontWeight": "600"},
+                                                            style_cell_conditional=[
+                                                                {"if": {"column_id": "ID"},
+                                                                 "width": "130px", "minWidth": "130px", "maxWidth": "130px",
+                                                                 "textAlign": "left"},
+                                                                {"if": {"column_id": "Indices"},
+                                                                 "width": "94px", "minWidth": "94px", "maxWidth": "94px"},
+                                                                {"if": {"column_id": "Features"},
+                                                                 "width": "100px", "minWidth": "100px", "maxWidth": "100px"},
+                                                                {"if": {"column_id": "m"},
+                                                                 "width": "35px", "minWidth": "35px", "maxWidth": "35px"},
+                                                                {"if": {"column_id": "CE"},
+                                                                 "width": "70px", "minWidth": "70px", "maxWidth": "70px"},
+                                                                # single-token headers like "max(dists)" cannot wrap,
+                                                                # so give them room to print in full
+                                                            ] + [{"if": {"column_id": col}, "width": "95px",
+                                                                  "minWidth": "95px", "maxWidth": "95px"}
+                                                                 for col in ["Score Unified", "max(dists)", "min(dists)",
+                                                                             "med(dists)", "Explained Var(%)", "#Matches"]],
                                                             persistence=True, persistence_type="session", persisted_props=["columns.name", "data"]),
                                        id="resid-mp-table_div", style={'textAlign': 'center', "margin": "auto", "margin-top": "30px"}))]),
 
@@ -271,8 +288,9 @@ layout = dbc.Container([
         dcc.Download(id="download-mp-results")
         ]),
 
-    dbc.Row(dbc.Col(html.Iframe(id="ts-decomp-resid_matrixprofile-motif-plot-iframe", srcDoc="<h3>Loading...</h3>",
-           style={"width": "100%", "height": "400px", 'paddingBottom': '2%'}), id="ts-decomp-resid_matrixprofile-plots")),
+    dbc.Row(dbc.Col(dcc.Graph(id="ts-decomp-resid_matrixprofile-motif-plot-graph",
+                              figure={}, config={"displaylogo": False}),
+                    id="ts-decomp-resid_matrixprofile-plots")),
     ], className="app-card"),
 
     # solves race condition of callback running faster then the rendering of the page layout
@@ -320,18 +338,18 @@ def download_mp_results(n_clicks, table_data, table_columns):
 
 
 @callback(
-    Output("ts-decomp-stl-plots-iframe", "srcDoc"),
+    Output("ts-decomp-stl-plots-graph", "figure"),
     Input("url-decompviz", "pathname"),
     Input("ts-decomp-stl-plots-iframe-memory", "data"),
     Input("interval-component", "n_intervals"),
     prevent_initial_call=True
 )
-def render_plots(url, html_matplotlib_stl, interval):
+def render_plots(url, decomp_figure, interval):
     if url != "/decomp-viz":
         raise exceptions.PreventUpdate
-    if html_matplotlib_stl is None:
-        return "<h3>Loading...</h3>", "<h3>Loading...</h3>"
-    return html_matplotlib_stl
+    if not decomp_figure:
+        raise exceptions.PreventUpdate
+    return decomp_figure
 
 @callback(
     Output("datafeature-dropdown-mp", "options"),
@@ -448,7 +466,7 @@ def perform_matrixprofile_ifnotin_cache(set_progress, n_clicks, max_motifs, subs
 
 #function triggers with user selecting rows in the table and update the plot with the latest
 @callback(
-    Output("ts-decomp-resid_matrixprofile-motif-plot-iframe","srcDoc"),
+    Output("ts-decomp-resid_matrixprofile-motif-plot-graph", "figure"),
     Input("resid-mp-table", "selected_rows"),
     State("resid-mp-table", "data"),
     State("resid-mp-table", "columns"),
@@ -472,63 +490,59 @@ def render_plots_motifs(selected_rows, table_data, table_columns, stored_decomp_
     motif_indexes = re.findall(r'\d+', motif_indexes)
     motif_indexes = np.array([int(i) for i in motif_indexes])
 
-    if len(data_features) <= 1:
-        data_feature = data_features[0]
-        fig, axes = plt.subplots(ncols=3, nrows=1, figsize=(10, 3), squeeze=False)
-        #create time serie as dataframe from the stored_decomp_resid with index as datetime
-        time_series = pd.DataFrame({data_feature: stored_decomp_resid[location_name+"_"+data_feature][1]},
-                                index=pd.to_datetime(stored_decomp_resid[location_name+"_"+data_feature][0]))
-        
+    nrows = len(data_features)
+    titles = ["Z-Normalized Subsequences", "Raw Subsequences", "Motif in Residual TS"]
+    fig = make_subplots(rows=nrows, cols=3,
+                        subplot_titles=titles + [""] * (3 * (nrows - 1)),
+                        horizontal_spacing=0.06, vertical_spacing=0.12)
+
+    palette = px.colors.qualitative.Dark24
+
+    for k, data_feature in enumerate(data_features, start=1):
+        key = location_name + "_" + data_feature
         #removed nones because of the nan values in the resid
-        time_series = time_series.dropna()
+        time_series = pd.DataFrame({data_feature: stored_decomp_resid[key][1]},
+                                   index=pd.to_datetime(stored_decomp_resid[key][0])).dropna()
 
-        #plot as a line and original datetime index
-        axes[0,2].plot(time_series, color='black', linewidth=0.5, alpha=0.5)
+        # the residual series as context for where the motif occurs
+        fig.add_trace(go.Scatter(x=time_series.index, y=time_series[data_feature],
+                                 mode="lines", line=dict(width=0.7, color="rgba(70,70,70,0.4)"),
+                                 name="Residual", showlegend=False), row=k, col=3)
 
-        colors = plt.cm.tab20(np.linspace(0, 1, len(motif_indexes)))
-        axes[0,0].set_prop_cycle('color', colors)
-        axes[0,1].set_prop_cycle('color', colors)
-        axes[0,2].set_prop_cycle('color', colors)
-        #get the time serie motif
-        for index in motif_indexes:
-            subsequence_match = time_series[index : index + m]
-            normalized_subsequence_match = (subsequence_match - np.mean(subsequence_match))/np.std(subsequence_match)
-            axes[0,0].plot(normalized_subsequence_match.values)
-            axes[0,1].plot(subsequence_match.values)
-            axes[0,2].plot(subsequence_match, linewidth=2) 
-    
-    else:
-        fig, axes = plt.subplots(ncols=3, nrows=len(data_features), figsize=(10, 3), squeeze=False)
+        for i, index in enumerate(motif_indexes):
+            subsequence_match = time_series[index: index + m]
+            values = subsequence_match[data_feature].to_numpy()
+            spread = np.std(values)
+            normalized = (values - np.mean(values)) / spread if spread else np.zeros_like(values)
+            color = palette[i % len(palette)]
+            label = "match %d" % (i + 1)
 
-        #create multidim time serie as dataframe from the stored_decomp_resid with index as datetime
-        time_series = {}
-        for data_feature in data_features:
-            #removed nones because of the nan values in the resid
-            time_series[data_feature] = pd.DataFrame({data_feature: stored_decomp_resid[location_name+"_"+data_feature][1]},
-                                index=pd.to_datetime(stored_decomp_resid[location_name+"_"+data_feature][0])).dropna()
-    
+            fig.add_trace(go.Scatter(y=normalized, mode="lines", name=label,
+                                     line=dict(width=1.5, color=color),
+                                     showlegend=False), row=k, col=1)
+            fig.add_trace(go.Scatter(y=values, mode="lines", name=label,
+                                     line=dict(width=1.5, color=color),
+                                     showlegend=False), row=k, col=2)
+            fig.add_trace(go.Scatter(x=subsequence_match.index, y=values, mode="lines",
+                                     name=label, line=dict(width=2, color=color),
+                                     showlegend=False), row=k, col=3)
 
-        for k, data_feature in enumerate(data_features):
-            axes[k,2].plot(time_series[data_feature], color='black', linewidth=0.5, alpha=0.5)
-            colors = plt.cm.tab20(np.linspace(0, 1, len(motif_indexes)))
-            axes[k,0].set_prop_cycle('color', colors)
-            axes[k,1].set_prop_cycle('color', colors)
-            axes[k,2].set_prop_cycle('color', colors)
-            #get the time serie motif
-            for index in motif_indexes:
-                subsequence_match = time_series[data_feature][index : index + m]
-                normalized_subsequence_match = (subsequence_match - np.mean(subsequence_match))/np.std(subsequence_match)
-                axes[k,0].plot(normalized_subsequence_match.values)
-                axes[k,1].plot(subsequence_match.values)
-                axes[k,2].plot(subsequence_match, linewidth=2)
-            
-    axes[0,0].set_title("Z-Normalized Subsequences")
-    axes[0,1].set_title("Raw Subsequences")
-    axes[0,2].set_title("Motif in Residual TS")
+        fig.update_yaxes(title_text=data_feature, row=k, col=1, title_font=dict(size=10))
 
-    fig.autofmt_xdate(rotation=30)
-    fig.tight_layout()
-    return mpld3.fig_to_html(fig)
+    fig.update_xaxes(nticks=4, tickfont=dict(size=9))
+    fig.update_yaxes(nticks=5, tickfont=dict(size=9))
+    fig.update_annotations(font_size=12)
+    fig.update_layout(
+        height=max(300, 260 * nrows),
+        margin=dict(l=60, r=20, t=40, b=40),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font=dict(family="IBM Plex Sans, sans-serif"),
+    )
+    fig.update_xaxes(showgrid=True, gridcolor="#eeeeea", zeroline=False)
+    fig.update_yaxes(showgrid=True, gridcolor="#eeeeea", zeroline=False)
+
+    return fig.to_plotly_json()
 
 
 # k - number of top k smallest distances used to construct the matrix profile.
