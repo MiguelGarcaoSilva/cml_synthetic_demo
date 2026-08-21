@@ -245,7 +245,9 @@ layout = dbc.Container([
                                                             selected_rows=[],
                                                             page_action="native",
                                                             page_current=0,
-                                                            page_size=10, persistence=True, persistence_type="session", persisted_props=["columns.name", "data"]),
+                                                            page_size=10,
+                                                            style_table={"overflowX": "auto"},
+                                                            persistence=True, persistence_type="session", persisted_props=["columns.name", "data"]),
                                        id="ts-decomp-table_div", style={'textAlign': 'center', "margin": "auto", "margin-top": "30px"}))]),
 
         dbc.Row(children=[dbc.Col(html.Div(dcc.Link(dbc.Button("Check Decomposition Visualizations!", id="checkfull_viz_button", className="mr-2", color="primary"),
