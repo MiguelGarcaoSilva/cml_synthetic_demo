@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the article below."
+title: "cml_synthetic_demo: a web application to discover actionable spatiotemporal descriptors of urban dynamics from mobile-phone data"
+authors:
+  - family-names: "Silva"
+    given-names: "Miguel G."
+repository-code: "https://github.com/MiguelGarcaoSilva/cml_synthetic_demo"
+license: MIT
+preferred-citation:
+  type: article
+  title: "Actionable descriptors of spatiotemporal urban dynamics from large-scale mobile data: A case study in Lisbon city"
+  authors:
+    - family-names: "Silva"
+      given-names: "Miguel G."
+    - family-names: "Madeira"
+      given-names: "Sara C."
+    - family-names: "Henriques"
+      given-names: "Rui"
+  journal: "Environment and Planning B: Urban Analytics and City Science"
+  year: 2024
+  volume: 51
+  issue: 8
+  start: 1725
+  end: 1741
+  doi: "10.1177/23998083231219048"

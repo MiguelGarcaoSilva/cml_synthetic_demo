@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+body {
+    background: #f7f7f4;
+    font-family: 'IBM Plex Sans', -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    color: #212529;
+}
+
+h2 {
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 2px;
+}
+
+.app-subtitle {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+/* one white card per analysis stage */
+.app-card {
+    background: #ffffff;
+    border: 1px solid #e7e7e2;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.section-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #8a8a84;
+    margin-bottom: 14px;
+}
+
+.section-label .section-number {
+    color: #2c3e50;
+    margin-right: 8px;
+}
+
+label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #495057;
+    margin-bottom: 4px;
+}
+
+iframe {
+    border: none;
+}
+
+.leaflet-container {
+    border-radius: 6px;
+}
+
+/* floating info panels on the maps */
+.info {
+    background: rgba(255, 255, 255, 0.92);
+    padding: 8px 12px;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    max-width: 260px;
+}
+
+.info h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+}
+
+.dash-table-container {
+    font-size: 0.85rem;
+}

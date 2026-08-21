@@ -17,8 +17,12 @@ app = Dash(server=server, external_stylesheets=[
 
 
 app.layout = dbc.Container([
-    dbc.Row(dbc.Col(html.H2("Mobility Data in Lisbon"), width={'size': 12, 'offset': 0, 'order': 0}), style={
-            'textAlign': 'center', 'paddingBottom': '1%'}),
+    dbc.Row(dbc.Col([
+        html.H2("Mobility Data in Lisbon"),
+        html.P("Actionable spatiotemporal descriptors of urban dynamics — synthetic demo",
+               className="app-subtitle"),
+    ], width={'size': 12, 'offset': 0, 'order': 0}), style={
+            'textAlign': 'center', 'paddingTop': '24px', 'paddingBottom': '18px'}),
     dcc.Store(id='timeagg-store-memory', data={}, storage_type="session"),
     dcc.Store(id='spaceagg-store-memory', data={}, storage_type="session"),
     dcc.Store(id='checklist-store-memory', data={}, storage_type="session"),

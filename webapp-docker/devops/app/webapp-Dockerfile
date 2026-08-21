@@ -1,12 +1,11 @@
-FROM python:3.8-slim
- 
+FROM python:3.11-slim
+
 COPY devops/app/requirements.txt ./
-RUN apt-get update \
-    && apt-get -y install apt-utils \
-    && apt-get -y install libpq-dev gcc  libgirepository1.0-dev \ 
-    && apt-get -y install libcairo2-dev pkg-config python3-dev python3-tk tk-dev
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./
 
-CMD [ "gunicorn", "--workers=3", "--threads=9", "-b 0.0.0.0:80", "app:server", "--timeout 0", "--worker-connections=10"]
+# single worker: Dash registers component resources per worker at first index
+# render, so multiple workers race on cold start; heavy callbacks run in
+# separate processes via the diskcache background-callback manager anyway
+CMD [ "gunicorn", "--workers=1", "--threads=12", "-b", "0.0.0.0:80", "--timeout", "0", "app:server"]

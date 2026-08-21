@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-from dotenv import load_dotenv, main
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -9,14 +8,50 @@ from geoalchemy2 import Geometry
 
 import psycopg2
 import psycopg2.extras
+import io
 import logging
 import json
 import os
+import shutil
+import sys
+
+DATA_DIR = "/wd"
+KAGGLE_DATASET = "miguelgarcaosilva/synthetic-mp-data-in-lisbon"
+# key file per expected data folder, to detect missing or partial data
+EXPECTED_DATA = {
+    "VODAFONE_GRELHA_2021": "vodafone_grelha.csv",
+    "TAZ": "Zonamento_zone_Project.shp",
+    "CML Mobility": "synthetic_data.csv",
+}
+
+
+def ensure_data_present():
+    missing = [d for d, key_file in EXPECTED_DATA.items()
+               if not os.path.isfile(os.path.join(DATA_DIR, d, key_file))]
+    if not missing:
+        return
+    logging.info("Synthetic dataset not found (missing: %s).", ", ".join(missing))
+    logging.info("Downloading it from Kaggle (~200 MB, one time only)...")
+    try:
+        import kagglehub
+        download_path = os.path.join(kagglehub.dataset_download(KAGGLE_DATASET), "SyntheticData")
+        for d in missing:
+            shutil.copytree(os.path.join(download_path, d),
+                            os.path.join(DATA_DIR, d), dirs_exist_ok=True)
+        logging.info("Dataset downloaded and stored in webapp-docker/devops/populate_db/SyntheticData/.")
+    except Exception:
+        logging.exception(
+            "Automatic download failed. Download the dataset manually from "
+            "https://www.kaggle.com/datasets/%s and extract the SyntheticData folder "
+            "into webapp-docker/devops/populate_db/ before running docker compose up.",
+            KAGGLE_DATASET)
+        sys.exit(1)
 
 
 def main():
     logging.basicConfig(level=logging.INFO)
     logging.info("Starting Script")
+    ensure_data_present()
     # SGBD configs
     DB_HOST = os.getenv('PG_HOST')
     DB_USER = os.getenv('PG_USER')
@@ -50,8 +85,18 @@ def main():
         print("You are connected to - ", record, "\n")
     except Exception as e:
         print("Error while connecting to PostgreSQL", e)
+        sys.exit(1)
     finally:
         if dbConn:
+
+            # already populated (e.g., docker compose up after a successful first
+            # run re-executes this service): skip the data load, keep exit code 0
+            cursor.execute("SELECT EXISTS (SELECT 1 FROM mobilitydata)")
+            if cursor.fetchone()[0]:
+                logging.info("Database already populated - skipping data load.")
+                cursor.close()
+                dbConn.close()
+                return
 
             #path_eixos_folder = "../../Data/CML Data/VODAFONE_EIXOS_2021/"
             path_grelha_folder = "/wd/VODAFONE_GRELHA_2021/"
@@ -186,10 +231,21 @@ def main():
                 path_data_synthetic+'synthetic_data.csv', "MobilityData"))
 
             #only columns with header n_terminals, roaming_terminals, n_phonecalls
-            synthetic_df = pd.read_csv(path_data_synthetic+'synthetic_data.csv', header=0, usecols=["time", "location_id", "n_terminals", "n_roaming_terminals", "n_phonecalls"])
+            columns = ["time", "location_id", "n_terminals", "n_roaming_terminals", "n_phonecalls"]
+            synthetic_df = pd.read_csv(path_data_synthetic+'synthetic_data.csv', header=0, usecols=columns)
+            synthetic_df = synthetic_df[columns]
+            # counts may be parsed as floats; COPY needs integer literals
+            int_columns = ["location_id", "n_terminals", "n_roaming_terminals", "n_phonecalls"]
+            synthetic_df[int_columns] = synthetic_df[int_columns].round().astype("int64")
             logging.info(synthetic_df.head())
-            #send to database in batches without index
-            synthetic_df.to_sql("mobilitydata", engine_synthetic, if_exists="append", index=False, chunksize=1000)
+            #bulk load with COPY (orders of magnitude faster than row-wise INSERTs)
+            buffer = io.StringIO()
+            synthetic_df.to_csv(buffer, index=False, header=False)
+            buffer.seek(0)
+            cursor.copy_expert(
+                'COPY mobilitydata ("time", location_id, n_terminals, n_roaming_terminals, n_phonecalls) FROM STDIN WITH (FORMAT csv)',
+                buffer)
+            dbConn.commit()
 
             cursor.close()
             dbConn.close()
